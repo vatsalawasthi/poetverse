@@ -67,17 +67,21 @@ export const FALLBACK_PERSONAS = [
 ];
 
 export const AuthProvider = ({ children }) => {
+  // Defaults to null (Guest) unless the user has logged in or registered on this device
   const [currentUser, setCurrentUser] = useState(() => {
     const saved = localStorage.getItem('poetverse_user');
-    return saved ? JSON.parse(saved) : FALLBACK_PERSONAS[0];
+    return saved ? JSON.parse(saved) : null;
   });
 
   const [personas, setPersonas] = useState(FALLBACK_PERSONAS);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authModalInitialMode, setAuthModalInitialMode] = useState('register'); // 'login' or 'register'
 
   useEffect(() => {
     if (currentUser) {
       localStorage.setItem('poetverse_user', JSON.stringify(currentUser));
+    } else {
+      localStorage.removeItem('poetverse_user');
     }
   }, [currentUser]);
 
@@ -88,12 +92,14 @@ export const AuthProvider = ({ children }) => {
         if (res.data && res.data.length > 0) {
           setPersonas(res.data);
           // sync current user if matching ID found
-          const matched = res.data.find(u => u.id === currentUser?.id || u.username === currentUser?.username);
-          if (matched) setCurrentUser(matched);
+          if (currentUser) {
+            const matched = res.data.find(u => u.id === currentUser?.id || u.username === currentUser?.username);
+            if (matched) setCurrentUser(matched);
+          }
         }
       })
       .catch(() => {
-        // Backend not active yet, using local personas
+        // Backend offline fallback
       });
   }, []);
 
@@ -125,7 +131,7 @@ export const AuthProvider = ({ children }) => {
       setIsAuthModalOpen(false);
       return { success: true, user: res.data };
     } catch (err) {
-      // Local registration
+      // Local registration fallback
       const newUser = {
         id: 'user_' + Date.now(),
         ...userData,
@@ -150,8 +156,21 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('poetverse_user');
   };
 
+  const openRegisterModal = () => {
+    setAuthModalInitialMode('register');
+    setIsAuthModalOpen(true);
+  };
+
+  const openLoginModal = () => {
+    setAuthModalInitialMode('login');
+    setIsAuthModalOpen(true);
+  };
+
   const toggleFollow = async (targetUserId) => {
-    if (!currentUser) return;
+    if (!currentUser) {
+      openRegisterModal();
+      return;
+    }
     try {
       await userAPI.toggleFollow(targetUserId, currentUser.id);
     } catch (e) {
@@ -169,7 +188,10 @@ export const AuthProvider = ({ children }) => {
   };
 
   const toggleBookmark = async (poemId) => {
-    if (!currentUser) return;
+    if (!currentUser) {
+      openRegisterModal();
+      return;
+    }
     try {
       await userAPI.toggleBookmark(currentUser.id, poemId);
     } catch (e) {
@@ -204,7 +226,10 @@ export const AuthProvider = ({ children }) => {
         currentUser,
         personas,
         isAuthModalOpen,
-        openAuthModal: () => setIsAuthModalOpen(true),
+        authModalInitialMode,
+        openAuthModal: () => openLoginModal(),
+        openRegisterModal,
+        openLoginModal,
         closeAuthModal: () => setIsAuthModalOpen(false),
         login,
         register,

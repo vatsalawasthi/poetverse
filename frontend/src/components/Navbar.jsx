@@ -11,13 +11,14 @@ import {
   User as UserIcon, 
   ChevronDown, 
   LogOut,
-  Flame
+  UserPlus,
+  LogIn
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 
 export default function Navbar() {
-  const { currentUser, personas, switchPersona, logout, openAuthModal } = useAuth();
+  const { currentUser, personas, switchPersona, logout, openLoginModal, openRegisterModal } = useAuth();
   const { theme, setTheme, themes } = useTheme();
   const location = useLocation();
 
@@ -85,7 +86,7 @@ export default function Navbar() {
           })}
         </nav>
 
-        {/* Right Actions: Create, Theme, Switch Persona / User */}
+        {/* Right Actions: Create, Theme, User Auth / Register */}
         <div className="flex items-center gap-3">
           
           {/* Pen Verse Button */}
@@ -101,7 +102,7 @@ export default function Navbar() {
           <div className="relative">
             <button
               onClick={() => { setIsThemeOpen(!isThemeOpen); setIsPersonaOpen(false); }}
-              title="Reading Theme"
+              title="Reading Atmosphere"
               className={`p-2 rounded-lg border transition-all ${theme.border} hover:bg-stone-800/40 opacity-80 hover:opacity-100`}
             >
               <Palette className="w-4 h-4 text-amber-400" />
@@ -130,7 +131,7 @@ export default function Navbar() {
             )}
           </div>
 
-          {/* Persona Switcher / User Profile */}
+          {/* User Auth Buttons or Active Profile Dropdown */}
           {currentUser ? (
             <div className="relative">
               <button
@@ -138,7 +139,7 @@ export default function Navbar() {
                 className={`flex items-center gap-2 p-1.5 pr-2.5 rounded-lg border transition-all ${theme.border} hover:bg-stone-800/40`}
               >
                 <img
-                  src={currentUser.avatar}
+                  src={currentUser.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
                   alt={currentUser.displayName}
                   className="w-7 h-7 rounded-full object-cover border border-amber-500/40 shadow"
                 />
@@ -151,7 +152,7 @@ export default function Navbar() {
               {isPersonaOpen && (
                 <div className={`absolute right-0 mt-2 w-64 rounded-xl shadow-2xl border p-2 z-50 ${theme.cardBg} ${theme.border} animate-in fade-in zoom-in-95`}>
                   
-                  {/* Current Active Persona */}
+                  {/* Current User */}
                   <Link
                     to={`/profile/${currentUser.username}`}
                     onClick={() => setIsPersonaOpen(false)}
@@ -172,10 +173,10 @@ export default function Navbar() {
                     </div>
                   </Link>
 
-                  {/* Switch Persona (Instant Demo Switcher) */}
+                  {/* Switch Persona / Demo */}
                   <div className="text-[11px] font-semibold px-2 py-1 opacity-60 uppercase tracking-wider flex items-center justify-between">
-                    <span>Switch Persona</span>
-                    <span className="text-[9px] bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded">Demo</span>
+                    <span>Try Demo Personas</span>
+                    <span className="text-[9px] bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded">Quick Switch</span>
                   </div>
 
                   <div className="space-y-1 my-1">
@@ -219,12 +220,23 @@ export default function Navbar() {
               )}
             </div>
           ) : (
-            <button
-              onClick={openAuthModal}
-              className="px-3.5 py-1.5 rounded-lg border border-amber-500/40 text-amber-300 text-xs font-semibold hover:bg-amber-500/10 transition-all"
-            >
-              Sign In
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={openLoginModal}
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold opacity-80 hover:opacity-100 hover:text-amber-300 transition-all flex items-center gap-1"
+              >
+                <LogIn className="w-3.5 h-3.5" />
+                <span>Sign In</span>
+              </button>
+
+              <button
+                onClick={openRegisterModal}
+                className="px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-stone-950 text-xs font-bold shadow-md shadow-amber-500/20 transition-all flex items-center gap-1.5"
+              >
+                <UserPlus className="w-3.5 h-3.5" />
+                <span>Join Sanctuary</span>
+              </button>
+            </div>
           )}
 
         </div>
