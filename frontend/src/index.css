@@ -1,0 +1,71 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --font-serif-display: 'Playfair Display', Georgia, serif;
+    --font-serif-reading: 'Lora', Georgia, serif;
+    --font-sans: 'Plus Jakarta Sans', system-ui, sans-serif;
+    --font-heading: 'Cinzel', serif;
+    --font-script: 'Alex Brush', cursive;
+  }
+}
+
+.font-serif-display {
+  font-family: var(--font-serif-display);
+}
+
+.font-serif-reading {
+  font-family: var(--font-serif-reading);
+}
+
+.font-sans-modern {
+  font-family: var(--font-sans);
+}
+
+.font-heading {
+  font-family: var(--font-heading);
+}
+
+.font-script {
+  font-family: var(--font-script);
+}
+
+/* Custom Reading Theme Styles */
+.theme-parchment {
+  background-color: #fdfbf7;
+  color: #292524;
+}
+
+.theme-dark-ink {
+  background-color: #121214;
+  color: #e7e5e4;
+}
+
+.theme-amber-dusk {
+  background-color: #1c1917;
+  color: #fef3c7;
+}
+
+.theme-emerald-moss {
+  background-color: #061914;
+  color: #ecfdf5;
+}
+
+/* Smooth custom scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(217, 119, 6, 0.25);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(217, 119, 6, 0.5);
+}
