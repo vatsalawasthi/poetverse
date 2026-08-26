@@ -1,7 +1,12 @@
 import axios from 'axios';
 
+// Use environment variable if provided (e.g. from Render or backend URL), otherwise default to relative /api
+const baseURL = import.meta.env.VITE_API_URL 
+  ? `${import.meta.env.VITE_API_URL.replace(/\/$/, '')}/api` 
+  : '/api';
+
 const api = axios.create({
-  baseURL: '/api',
+  baseURL,
   headers: {
     'Content-Type': 'application/json',
   },
