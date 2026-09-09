@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Feather, User, Mail, Lock, Check, UserPlus, LogIn, AlertCircle, KeyRound, ArrowLeft, CheckCircle2 } from 'lucide-react';
+import { X, Feather, User, Mail, Lock, Check, UserPlus, LogIn, AlertCircle, KeyRound, ArrowLeft, CheckCircle2, ExternalLink } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 
@@ -48,13 +48,13 @@ export default function AuthModal() {
     setIsSubmitting(true);
     const res = await forgotPassword(email.trim());
     if (res.success) {
-      setSuccessInfo(`Reset code sent to ${email.trim()}! Check your inbox or enter code below.`);
+      setSuccessInfo(`Verification code dispatched to ${email.trim()}! Please check your private inbox.`);
       if (res.data?.resetCode) {
         setResetCode(res.data.resetCode);
       }
       setMode('reset');
     } else {
-      setError(res.error || 'Failed to request password reset.');
+      setError(res.error || 'Failed to request password reset. Please make sure this email is registered.');
     }
     setIsSubmitting(false);
   };
@@ -82,7 +82,7 @@ export default function AuthModal() {
         closeAuthModal();
       }, 1200);
     } else {
-      setError(res.error || 'Invalid or expired code.');
+      setError(res.error || 'Invalid or expired verification code.');
     }
     setIsSubmitting(false);
   };
@@ -142,13 +142,13 @@ export default function AuthModal() {
                 {mode === 'login' && 'Sign In to PoetVerse'}
                 {mode === 'register' && 'Create Your Poet Account'}
                 {mode === 'forgot' && 'Reset Password'}
-                {mode === 'reset' && 'Set New Password'}
+                {mode === 'reset' && 'Verify & Set New Password'}
               </h2>
               <div className="text-xs opacity-60">
                 {mode === 'login' && 'Access your personal verses and drafts'}
                 {mode === 'register' && 'Join the private sanctuary with your credentials'}
-                {mode === 'forgot' && 'We will send a reset code to your registered email'}
-                {mode === 'reset' && 'Enter the 6-digit code and choose a new password'}
+                {mode === 'forgot' && 'We send a verification code to your registered email'}
+                {mode === 'reset' && 'Enter the 6-digit code received on your email'}
               </div>
             </div>
           </div>
@@ -212,7 +212,7 @@ export default function AuthModal() {
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="poet@example.com"
+                    placeholder="mail.vatsalawasthi@gmail.com"
                     className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-stone-700 bg-stone-900/70 text-xs text-stone-100 focus:outline-none focus:border-amber-500"
                   />
                 </div>
@@ -223,7 +223,7 @@ export default function AuthModal() {
                 disabled={isSubmitting}
                 className="w-full py-3 rounded-xl bg-gradient-to-r from-amber-500 via-amber-400 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-stone-950 font-bold text-xs shadow-lg shadow-amber-500/20 transition-all disabled:opacity-50 flex items-center justify-center gap-1.5"
               >
-                {isSubmitting ? 'Sending Code...' : 'Send Reset Code to Mail'}
+                {isSubmitting ? 'Dispatching Code to Mail...' : 'Send Reset Code to Private Mail'}
               </button>
 
               <button
@@ -239,16 +239,22 @@ export default function AuthModal() {
           {/* RESET PASSWORD FORM */}
           {mode === 'reset' && (
             <form onSubmit={handleResetSubmit} className="space-y-3.5">
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider opacity-70 mb-1">
-                  Account Email
-                </label>
-                <input
-                  type="email"
-                  disabled
-                  value={email}
-                  className="w-full px-3 py-2 rounded-xl border border-stone-800 bg-stone-900/40 text-xs text-stone-400"
-                />
+              
+              <div className="p-3 rounded-xl border border-amber-500/20 bg-amber-500/5 text-xs text-amber-200/90 flex flex-col gap-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-amber-300">Code Sent to:</span>
+                  <a
+                    href="https://mail.google.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[11px] text-amber-400 underline hover:text-amber-300 inline-flex items-center gap-0.5"
+                  >
+                    Open Gmail <ExternalLink className="w-3 h-3" />
+                  </a>
+                </div>
+                <div className="text-stone-300 font-mono text-[11px] truncate">
+                  {email}
+                </div>
               </div>
 
               <div>
@@ -296,7 +302,7 @@ export default function AuthModal() {
                 onClick={() => { setMode('forgot'); setError(null); }}
                 className="w-full text-center text-xs text-stone-400 hover:text-amber-300 flex items-center justify-center gap-1 mt-2"
               >
-                <ArrowLeft className="w-3.5 h-3.5" /> Resend Code
+                <ArrowLeft className="w-3.5 h-3.5" /> Re-enter Email
               </button>
             </form>
           )}

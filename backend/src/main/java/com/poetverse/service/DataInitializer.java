@@ -31,6 +31,15 @@ public class DataInitializer implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
+        // Sync/Update Vatsal's personal email to mail.vatsalawasthi@gmail.com if exists
+        userRepository.findByUsernameIgnoreCase("vatsal_poet").ifPresent(v -> {
+            if (!"mail.vatsalawasthi@gmail.com".equalsIgnoreCase(v.getEmail())) {
+                v.setEmail("mail.vatsalawasthi@gmail.com");
+                userRepository.save(v);
+                log.info("Updated Vatsal's registered email to mail.vatsalawasthi@gmail.com");
+            }
+        });
+
         if (userRepository.count() > 0) {
             log.info("Database already seeded with poets and poems.");
             return;
@@ -101,7 +110,7 @@ public class DataInitializer implements CommandLineRunner {
 
         User vatsal = userRepository.save(User.builder()
                 .username("vatsal_poet")
-                .email("vatsal@poetverse.io")
+                .email("mail.vatsalawasthi@gmail.com")
                 .password("password123")
                 .displayName("Vatsal Awasthi")
                 .bio("Exploring the intersection of modern verse, cosmic philosophy, and spontaneous rhythm.")
@@ -226,38 +235,6 @@ public class DataInitializer implements CommandLineRunner {
         poem4.getLikedBy().add(vatsal.getId());
         poem4.setLikesCount(3);
         poemRepository.save(poem4);
-
-        // 3. Seed Comments / Annotations
-        commentService.addComment(poem1.getId(), zoya.getId(), 
-                "The metaphor 'temples out of borrowed light' resonates deeply. Gorgeous cadence, Elena.", 4);
-        commentService.addComment(poem1.getId(), vatsal.getId(), 
-                "The volta at the third quatrain flows gracefully. Would love to write a complementary verse with you!", null);
-
-        commentService.addComment(poem3.getId(), vatsal.getId(), 
-                "The internal rhyme in 'subway grate / breath of yesterday' hits with pure momentum!", 2);
-
-        // 4. Seed Live Collaboration Threads
-        CollabRequestDTO collabReq1 = CollabRequestDTO.builder()
-                .title("Echoes Across the Horizon")
-                .promptOrTheme("A round-robin poem where each poet contributes a stanza from their continent's perspective at the exact same moment of dawn.")
-                .genre("Free Verse")
-                .mood("Hopeful")
-                .maxStanzas(4)
-                .initialStanza("""
-                        The first ray strikes the Sierra snow,
-                        Melting the crystal frost of slumber,
-                        Waking the larks to sing the dawn.
-                        """)
-                .build();
-        var collab1 = collaborationService.createCollaboration(elena.getId(), collabReq1);
-        
-        // Vatsal adds stanza 2 to this collab
-        collaborationService.submitStanza(collab1.getId(), vatsal.getId(), 
-                new com.poetverse.dto.StanzaSubmissionDTO("""
-                        Across the eastern oceans, bells awake the river ghats,
-                        Incense spiraling through the morning fog,
-                        Joining the distant hum of waking streets.
-                        """));
 
         log.info("PoetVerse database initialization completed successfully!");
     }
