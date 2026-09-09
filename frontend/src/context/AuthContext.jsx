@@ -46,6 +46,9 @@ export const AuthProvider = ({ children }) => {
     if (!userData.username?.trim() || !userData.email?.trim() || !userData.password?.trim()) {
       return { success: false, error: 'Username, email, and password are required.' };
     }
+    if (!userData.recoveryCode?.trim()) {
+      return { success: false, error: '4-word recovery code is required for account security.' };
+    }
 
     try {
       const res = await authAPI.register({
@@ -53,6 +56,7 @@ export const AuthProvider = ({ children }) => {
         username: userData.username.trim().toLowerCase().replace(/\s+/g, '_'),
         email: userData.email.trim().toLowerCase(),
         password: userData.password.trim(),
+        recoveryCode: userData.recoveryCode.trim(),
         displayName: userData.displayName?.trim() || userData.username.trim(),
       });
       setCurrentUser(res.data);
@@ -66,6 +70,24 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const verifyRecoveryCode = async (email, recoveryCode) => {
+    if (!email?.trim() || !recoveryCode?.trim()) {
+      return { success: false, error: 'Please enter your email and 4-word recovery code.' };
+    }
+    try {
+      const res = await authAPI.verifyRecoveryCode({
+        email: email.trim(),
+        recoveryCode: recoveryCode.trim(),
+      });
+      return { success: true, data: res.data };
+    } catch (err) {
+      const errorMessage = typeof err.response?.data === 'string'
+        ? err.response.data
+        : (err.response?.data?.message || 'Recovery code does not match. Please verify your 4 words.');
+      return { success: false, error: errorMessage };
+    }
+  };
+
   const forgotPassword = async (email) => {
     try {
       const res = await authAPI.forgotPassword(email.trim());
@@ -73,7 +95,7 @@ export const AuthProvider = ({ children }) => {
     } catch (err) {
       const errorMessage = typeof err.response?.data === 'string'
         ? err.response.data
-        : (err.response?.data?.message || 'Failed to send reset code. Please check your email.');
+        : (err.response?.data?.message || 'Failed to initiate reset.');
       return { success: false, error: errorMessage };
     }
   };
@@ -87,7 +109,7 @@ export const AuthProvider = ({ children }) => {
     } catch (err) {
       const errorMessage = typeof err.response?.data === 'string'
         ? err.response.data
-        : (err.response?.data?.message || 'Invalid or expired code. Please try again.');
+        : (err.response?.data?.message || 'Invalid or expired reset session. Please try again.');
       return { success: false, error: errorMessage };
     }
   };
@@ -181,6 +203,7 @@ export const AuthProvider = ({ children }) => {
         closeAuthModal: () => setIsAuthModalOpen(false),
         login,
         register,
+        verifyRecoveryCode,
         forgotPassword,
         resetPassword,
         logout,

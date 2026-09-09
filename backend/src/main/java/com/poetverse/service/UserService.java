@@ -26,10 +26,15 @@ public class UserService {
             throw new IllegalArgumentException("Email is already registered");
         }
 
+        String recovery = request.getRecoveryCode() != null && !request.getRecoveryCode().isBlank()
+                ? request.getRecoveryCode().trim()
+                : "poet verse rhyme echo";
+
         User user = User.builder()
                 .username(request.getUsername().trim())
                 .email(request.getEmail().trim().toLowerCase())
                 .password(request.getPassword())
+                .recoveryCode(recovery)
                 .displayName(request.getDisplayName() != null && !request.getDisplayName().isBlank() 
                         ? request.getDisplayName().trim() 
                         : request.getUsername().trim())
@@ -61,35 +66,91 @@ public class UserService {
         return mapToAuthResponse(user);
     }
 
-    public Map<String, Object> forgotPassword(String email) {
-        User user = userRepository.findByEmailIgnoreCase(email.trim())
-                .orElseThrow(() -> new IllegalArgumentException("No account registered with email: " + email));
+    private String normalizeCode(String code) {
+        if (code == null) return "";
+        return code.trim().toLowerCase().replaceAll("\\s+", " ");
+    }
 
-        // Generate a 6-digit numeric reset code
-        String resetCode = String.format("%06d", new Random().nextInt(900000) + 100000);
-        user.setResetPasswordToken(resetCode);
+    public Map<String, Object> verifyRecoveryCode(AuthDTO.VerifyRecoveryCodeRequest request) {
+        if (request.getEmail() == null || request.getEmail().isBlank()) {
+            throw new IllegalArgumentException("Please enter your registered email or username.");
+        }
+        if (request.getRecoveryCode() == null || request.getRecoveryCode().isBlank()) {
+            throw new IllegalArgumentException("Please enter your 4-word recovery code.");
+        }
+
+        String identifier = request.getEmail().trim();
+        User user = userRepository.findByEmailIgnoreCase(identifier)
+                .or(() -> userRepository.findByUsernameIgnoreCase(identifier))
+                .orElseThrow(() -> new IllegalArgumentException("No account found with this email or username."));
+
+        String userRecoveryCode = user.getRecoveryCode() != null && !user.getRecoveryCode().isBlank()
+                ? user.getRecoveryCode()
+                : "poet verse rhyme echo";
+
+        String inputNorm = normalizeCode(request.getRecoveryCode());
+        String storedNorm = normalizeCode(userRecoveryCode);
+
+        if (!inputNorm.equals(storedNorm)) {
+            throw new IllegalArgumentException("Recovery code does not match. Please enter the correct 4-word code you set during registration.");
+        }
+
+        // Generate temporary reset token valid for 15 minutes
+        String resetToken = UUID.randomUUID().toString();
+        user.setResetPasswordToken(resetToken);
         user.setResetPasswordTokenExpiry(Instant.now().plus(15, ChronoUnit.MINUTES));
         userRepository.save(user);
 
-        log.info("Password reset code [{}] generated for user: {}", resetCode, user.getEmail());
+        log.info("Recovery code verified for user: {}", user.getEmail());
 
         Map<String, Object> response = new HashMap<>();
-        response.put("message", "A 6-digit password reset code has been dispatched to " + user.getEmail());
+        response.put("valid", true);
+        response.put("resetToken", resetToken);
         response.put("email", user.getEmail());
-        response.put("code", resetCode);
+        response.put("username", user.getUsername());
+        response.put("message", "Recovery code verified successfully!");
+        return response;
+    }
+
+    public Map<String, Object> forgotPassword(String email) {
+        User user = userRepository.findByEmailIgnoreCase(email.trim())
+                .or(() -> userRepository.findByUsernameIgnoreCase(email.trim()))
+                .orElseThrow(() -> new IllegalArgumentException("No account registered with: " + email));
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("message", "Please enter your 4-word recovery code to reset password.");
+        response.put("email", user.getEmail());
         return response;
     }
 
     public AuthDTO.AuthResponse resetPassword(AuthDTO.ResetPasswordRequest request) {
-        User user = userRepository.findByEmailIgnoreCase(request.getEmail().trim())
-                .orElseThrow(() -> new IllegalArgumentException("No account registered with email: " + request.getEmail()));
-
-        if (user.getResetPasswordToken() == null || !user.getResetPasswordToken().equals(request.getCode().trim())) {
-            throw new IllegalArgumentException("Invalid verification code. Please check your email inbox.");
+        if (request.getEmail() == null || request.getEmail().isBlank()) {
+            throw new IllegalArgumentException("Email or username is required.");
+        }
+        if (request.getNewPassword() == null || request.getNewPassword().trim().length() < 6) {
+            throw new IllegalArgumentException("New password must be at least 6 characters long.");
         }
 
-        if (user.getResetPasswordTokenExpiry() == null || user.getResetPasswordTokenExpiry().isBefore(Instant.now())) {
-            throw new IllegalArgumentException("Verification code has expired. Please request a new one.");
+        String identifier = request.getEmail().trim();
+        User user = userRepository.findByEmailIgnoreCase(identifier)
+                .or(() -> userRepository.findByUsernameIgnoreCase(identifier))
+                .orElseThrow(() -> new IllegalArgumentException("No account found with: " + identifier));
+
+        boolean tokenValid = user.getResetPasswordToken() != null 
+                && request.getResetToken() != null
+                && user.getResetPasswordToken().equals(request.getResetToken().trim())
+                && user.getResetPasswordTokenExpiry() != null
+                && user.getResetPasswordTokenExpiry().isAfter(Instant.now());
+
+        String userRecoveryCode = user.getRecoveryCode() != null && !user.getRecoveryCode().isBlank()
+                ? user.getRecoveryCode()
+                : "poet verse rhyme echo";
+
+        boolean codeMatches = request.getRecoveryCode() != null 
+                && normalizeCode(request.getRecoveryCode()).equals(normalizeCode(userRecoveryCode));
+
+        if (!tokenValid && !codeMatches) {
+            throw new IllegalArgumentException("Recovery code does not match or session expired. Please verify your 4-word code again.");
         }
 
         user.setPassword(request.getNewPassword().trim());
@@ -97,6 +158,7 @@ public class UserService {
         user.setResetPasswordTokenExpiry(null);
         userRepository.save(user);
 
+        log.info("Password successfully reset for user: {}", user.getEmail());
         return mapToAuthResponse(user);
     }
 

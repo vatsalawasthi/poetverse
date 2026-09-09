@@ -33,18 +33,25 @@ public class DataInitializer implements CommandLineRunner {
     public void run(String... args) {
         try {
             if (userRepository.count() > 0) {
-                log.info("Database already seeded with poets and poems. Checking email sync...");
-                userRepository.findByUsernameIgnoreCase("vatsal_poet").ifPresent(v -> {
-                    try {
-                        if (!"mail.vatsalawasthi@gmail.com".equalsIgnoreCase(v.getEmail())) {
-                            if (!userRepository.existsByEmailIgnoreCase("mail.vatsalawasthi@gmail.com")) {
-                                v.setEmail("mail.vatsalawasthi@gmail.com");
-                                userRepository.save(v);
-                                log.info("Updated Vatsal's registered email to mail.vatsalawasthi@gmail.com");
-                            }
+                log.info("Database already seeded with poets and poems. Checking email & recovery sync...");
+                userRepository.findAll().forEach(u -> {
+                    boolean changed = false;
+                    if (u.getRecoveryCode() == null || u.getRecoveryCode().isBlank()) {
+                        u.setRecoveryCode("poet verse rhyme echo");
+                        changed = true;
+                    }
+                    if ("vatsal_poet".equalsIgnoreCase(u.getUsername()) && !"mail.vatsalawasthi@gmail.com".equalsIgnoreCase(u.getEmail())) {
+                        if (!userRepository.existsByEmailIgnoreCase("mail.vatsalawasthi@gmail.com")) {
+                            u.setEmail("mail.vatsalawasthi@gmail.com");
+                            changed = true;
                         }
-                    } catch (Exception ex) {
-                        log.warn("Notice updating email: {}", ex.getMessage());
+                    }
+                    if (changed) {
+                        try {
+                            userRepository.save(u);
+                        } catch (Exception ex) {
+                            log.warn("Notice updating user {}: {}", u.getUsername(), ex.getMessage());
+                        }
                     }
                 });
                 return;
@@ -57,6 +64,7 @@ public class DataInitializer implements CommandLineRunner {
                     .username("elena_solis")
                     .email("elena@poetverse.io")
                     .password("password123")
+                    .recoveryCode("poet verse rhyme echo")
                     .displayName("Elena Solis")
                     .bio("Weaver of midnight sonnets, classical romanticism, and whispers of the Andalusian wind.")
                     .avatar("https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80")
@@ -72,6 +80,7 @@ public class DataInitializer implements CommandLineRunner {
                     .username("malik_spoken")
                     .email("malik@poetverse.io")
                     .password("password123")
+                    .recoveryCode("poet verse rhyme echo")
                     .displayName("Malik Vance")
                     .bio("Spoken word artist & rhythm architect. Translating urban pavement into fire and cadence.")
                     .avatar("https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&auto=format&fit=crop&q=80")
@@ -87,6 +96,7 @@ public class DataInitializer implements CommandLineRunner {
                     .username("kaito_tanka")
                     .email("kaito@poetverse.io")
                     .password("password123")
+                    .recoveryCode("poet verse rhyme echo")
                     .displayName("Kaito Tanaka")
                     .bio("Minimalist observations. Capturing the ephemeral pause between falling raindrops.")
                     .avatar("https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200&auto=format&fit=crop&q=80")
@@ -102,6 +112,7 @@ public class DataInitializer implements CommandLineRunner {
                     .username("zoya_mir")
                     .email("zoya@poetverse.io")
                     .password("password123")
+                    .recoveryCode("poet verse rhyme echo")
                     .displayName("Zoya Mir")
                     .bio("Penning contemporary Ghazals and mystic verses on longing, moonlight, and timeless truth.")
                     .avatar("https://images.unsplash.com/photo-1517841905240-472988babdf9?w=200&auto=format&fit=crop&q=80")
@@ -117,6 +128,7 @@ public class DataInitializer implements CommandLineRunner {
                     .username("vatsal_poet")
                     .email("mail.vatsalawasthi@gmail.com")
                     .password("password123")
+                    .recoveryCode("poet verse rhyme echo")
                     .displayName("Vatsal Awasthi")
                     .bio("Exploring the intersection of modern verse, cosmic philosophy, and spontaneous rhythm.")
                     .avatar("https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=200&auto=format&fit=crop&q=80")

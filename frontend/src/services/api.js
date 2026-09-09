@@ -15,6 +15,7 @@ const api = axios.create({
 export const authAPI = {
   login: (credentials) => api.post('/auth/login', credentials),
   register: (userData) => api.post('/auth/register', userData),
+  verifyRecoveryCode: (data) => api.post('/auth/verify-recovery-code', data),
   forgotPassword: (email) => api.post('/auth/forgot-password', { email }),
   resetPassword: (data) => api.post('/auth/reset-password', data),
 };

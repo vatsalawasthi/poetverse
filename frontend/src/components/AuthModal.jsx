@@ -1,35 +1,48 @@
 import React, { useState, useEffect } from 'react';
-import { X, Feather, User, Mail, Lock, Check, UserPlus, LogIn, AlertCircle, KeyRound, ArrowLeft, CheckCircle2, ExternalLink, Inbox, Send } from 'lucide-react';
+import { X, Feather, User, Mail, Lock, Check, UserPlus, LogIn, AlertCircle, KeyRound, ArrowLeft, CheckCircle2, ShieldCheck, Sparkles, Key } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 
 const AVAILABLE_GENRES = ["Free Verse", "Sonnets", "Haiku & Tanka", "Ghazal", "Spoken Word", "Romanticism", "Elegies", "Ballads"];
 
+const WORD_BANK = [
+  "amber", "ocean", "silent", "moon", "whisper", "silver", "river", "shadow",
+  "golden", "forest", "breeze", "starlight", "solace", "ember", "autumn", "meadow",
+  "crystal", "harmony", "horizon", "feather", "velvet", "serene", "radiant", "echo"
+];
+
+const generate4WordCode = () => {
+  const shuffled = [...WORD_BANK].sort(() => 0.5 - Math.random());
+  return shuffled.slice(0, 4).join(" ");
+};
+
 export default function AuthModal() {
-  const { isAuthModalOpen, closeAuthModal, authModalInitialMode, login, register, forgotPassword, resetPassword } = useAuth();
+  const { isAuthModalOpen, closeAuthModal, authModalInitialMode, login, register, verifyRecoveryCode, resetPassword } = useAuth();
   const { theme } = useTheme();
 
   const [mode, setMode] = useState('login'); // 'login', 'register', 'forgot', 'reset'
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [recoveryCode, setRecoveryCode] = useState('');
   const [newPassword, setNewPassword] = useState('');
-  const [resetCode, setResetCode] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [resetToken, setResetToken] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [bio, setBio] = useState('');
   const [selectedGenres, setSelectedGenres] = useState(['Free Verse', 'Sonnets']);
   const [error, setError] = useState(null);
   const [successInfo, setSuccessInfo] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [dispatchCode, setDispatchCode] = useState(null);
 
   useEffect(() => {
     if (authModalInitialMode) {
       setMode(authModalInitialMode);
       setError(null);
       setSuccessInfo(null);
-      setResetCode('');
-      setDispatchCode(null);
+      setNewPassword('');
+      setConfirmPassword('');
+      setResetToken('');
     }
   }, [authModalInitialMode, isAuthModalOpen]);
 
@@ -41,69 +54,81 @@ export default function AuthModal() {
     );
   };
 
-  const getWebmailUrl = (userEmail) => {
-    const lower = userEmail.toLowerCase();
-    if (lower.includes('@gmail.')) return { name: 'Open Gmail', url: 'https://mail.google.com' };
-    if (lower.includes('@outlook.') || lower.includes('@hotmail.')) return { name: 'Open Outlook Web', url: 'https://outlook.live.com' };
-    if (lower.includes('@yahoo.')) return { name: 'Open Yahoo Mail', url: 'https://mail.yahoo.com' };
-    if (lower.includes('@icloud.')) return { name: 'Open iCloud Mail', url: 'https://www.icloud.com/mail' };
-    return { name: 'Open Webmail', url: 'https://mail.google.com' };
+  const handleSuggestWords = () => {
+    const suggested = generate4WordCode();
+    setRecoveryCode(suggested);
+    setError(null);
   };
 
-  const handleForgotSubmit = async (e) => {
+  // Step 1: Verify 4-Word Recovery Code
+  const handleVerifyRecovery = async (e) => {
     e.preventDefault();
     if (!email.trim()) {
-      setError('Please enter your registered email address.');
+      setError('Please enter your registered email address or username.');
       return;
     }
+    if (!recoveryCode.trim()) {
+      setError('Please enter your 4-word secret recovery code.');
+      return;
+    }
+
+    const words = recoveryCode.trim().split(/\s+/);
+    if (words.length < 2) {
+      setError('Please enter your full 4-word recovery code (e.g. blue ocean silent moon).');
+      return;
+    }
+
     setError(null);
     setIsSubmitting(true);
 
-    const res = await forgotPassword(email.trim());
+    const res = await verifyRecoveryCode(email.trim(), recoveryCode.trim());
     if (res.success) {
-      const code = res.data?.code;
-      setDispatchCode(code);
-      setResetCode('');
-      setSuccessInfo(`A verification code has been dispatched to ${email.trim()}.`);
+      setResetToken(res.data?.resetToken || '');
+      setSuccessInfo('✓ 4-Word recovery code verified successfully! Please enter your new password.');
       setMode('reset');
     } else {
-      setError(res.error || 'Failed to request reset. Please ensure this email is registered.');
+      setError(res.error || "Code doesn't match. Please enter the correct 4-word code you set during registration.");
     }
     setIsSubmitting(false);
   };
 
+  // Step 2: Set New Password
   const handleResetSubmit = async (e) => {
     e.preventDefault();
-    if (!resetCode.trim() || !newPassword.trim()) {
-      setError('Please enter the 6-digit code received in your email and your new password.');
-      return;
-    }
-    if (resetCode.trim().length !== 6) {
-      setError('Please enter a valid 6-digit verification code.');
+    if (!newPassword.trim()) {
+      setError('Please enter your new password.');
       return;
     }
     if (newPassword.length < 6) {
       setError('New password must be at least 6 characters long.');
       return;
     }
+    if (newPassword !== confirmPassword) {
+      setError('Passwords do not match. Please re-enter.');
+      return;
+    }
+
     setError(null);
     setIsSubmitting(true);
     const res = await resetPassword({
       email: email.trim(),
-      code: resetCode.trim(),
+      recoveryCode: recoveryCode.trim(),
+      resetToken: resetToken.trim(),
       newPassword: newPassword.trim(),
     });
+
     if (res.success) {
-      setSuccessInfo('Password successfully updated! You are now logged in.');
+      setSuccessInfo('Password successfully reset! You are now signed in.');
       setTimeout(() => {
         closeAuthModal();
       }, 1200);
     } else {
-      setError(res.error || 'Invalid or expired verification code. Please check your email inbox.');
+      setError(res.error || 'Failed to update password. Please verify your recovery code again.');
     }
     setIsSubmitting(false);
   };
 
+  // Sign In or Register Submit
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
@@ -125,11 +150,24 @@ export default function AuthModal() {
         setIsSubmitting(false);
         return;
       }
+      if (!recoveryCode.trim()) {
+        setError('Please create a 4-word secret recovery code.');
+        setIsSubmitting(false);
+        return;
+      }
+
+      const words = recoveryCode.trim().split(/\s+/);
+      if (words.length < 3) {
+        setError('Please enter a 4-word recovery code (e.g. blue ocean silent moon) or click "Suggest 4 Words".');
+        setIsSubmitting(false);
+        return;
+      }
 
       const res = await register({
         username: username.trim().toLowerCase().replace(/\s+/g, '_'),
         email: email.trim().toLowerCase(),
         password: password.trim(),
+        recoveryCode: recoveryCode.trim(),
         displayName: displayName.trim() || username.trim(),
         bio: bio.trim() || 'A poet in the PoetVerse sanctuary.',
         interestGenres: selectedGenres,
@@ -143,8 +181,6 @@ export default function AuthModal() {
     }
     setIsSubmitting(false);
   };
-
-  const webmail = getWebmailUrl(email);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in">
@@ -160,14 +196,14 @@ export default function AuthModal() {
               <h2 className="font-heading text-lg font-bold text-amber-200">
                 {mode === 'login' && 'Sign In to PoetVerse'}
                 {mode === 'register' && 'Create Your Poet Account'}
-                {mode === 'forgot' && 'Reset Password'}
-                {mode === 'reset' && 'Verify Email & Reset Password'}
+                {mode === 'forgot' && 'Reset via 4-Word Recovery Code'}
+                {mode === 'reset' && 'Set New Password'}
               </h2>
               <div className="text-xs opacity-60">
                 {mode === 'login' && 'Access your personal verses and drafts'}
-                {mode === 'register' && 'Join the private sanctuary with your credentials'}
-                {mode === 'forgot' && 'We send a verification code to your registered email'}
-                {mode === 'reset' && 'Check your email inbox and enter the 6-digit code'}
+                {mode === 'register' && 'Set your private credentials & 4-word recovery code'}
+                {mode === 'forgot' && 'Enter the 4-word code you saved when creating your account'}
+                {mode === 'reset' && 'Code matched! Choose your new secure password'}
               </div>
             </div>
           </div>
@@ -217,23 +253,53 @@ export default function AuthModal() {
             </div>
           )}
 
-          {/* FORGOT PASSWORD FORM */}
+          {/* STEP 1: FORGOT PASSWORD - VERIFY 4-WORD RECOVERY CODE */}
           {mode === 'forgot' && (
-            <form onSubmit={handleForgotSubmit} className="space-y-4">
+            <form onSubmit={handleVerifyRecovery} className="space-y-4">
+              <div className="p-3.5 rounded-xl border border-amber-500/30 bg-amber-500/10 text-xs flex flex-col gap-1.5">
+                <div className="flex items-center gap-1.5 text-amber-300 font-semibold">
+                  <ShieldCheck className="w-4 h-4 text-amber-400" />
+                  <span>4-Word Secret Code Verification</span>
+                </div>
+                <div className="text-stone-300 text-[11px] leading-relaxed">
+                  Enter your registered email and the 4-word code you saved at registration to verify your identity.
+                </div>
+              </div>
+
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider opacity-70 mb-1">
-                  Your Registered Email Address *
+                  Registered Email or Username *
                 </label>
                 <div className="relative">
                   <Mail className="w-4 h-4 absolute left-3 top-3 opacity-40" />
                   <input
-                    type="email"
+                    type="text"
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="Enter your registered email"
+                    placeholder="Enter your email or username"
                     className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-stone-700 bg-stone-900/70 text-xs text-stone-100 focus:outline-none focus:border-amber-500"
                   />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider opacity-70 mb-1">
+                  Your 4-Word Secret Recovery Code *
+                </label>
+                <div className="relative">
+                  <Key className="w-4 h-4 absolute left-3 top-3 opacity-40" />
+                  <input
+                    type="text"
+                    required
+                    value={recoveryCode}
+                    onChange={(e) => setRecoveryCode(e.target.value)}
+                    placeholder="e.g. blue ocean silent moon"
+                    className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-stone-700 bg-stone-900/70 text-xs text-amber-200 font-mono focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+                <div className="text-[11px] opacity-60 mt-1">
+                  The 4 words you chose when creating your PoetVerse account.
                 </div>
               </div>
 
@@ -242,12 +308,12 @@ export default function AuthModal() {
                 disabled={isSubmitting}
                 className="w-full py-3 rounded-xl bg-gradient-to-r from-amber-500 via-amber-400 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-stone-950 font-bold text-xs shadow-lg shadow-amber-500/20 transition-all disabled:opacity-50 flex items-center justify-center gap-1.5"
               >
-                {isSubmitting ? 'Dispatching...' : 'Send Verification Code to Email'}
+                {isSubmitting ? 'Verifying Recovery Code...' : 'Verify Recovery Code'}
               </button>
 
               <button
                 type="button"
-                onClick={() => { setMode('login'); setError(null); }}
+                onClick={() => { setMode('login'); setError(null); setSuccessInfo(null); }}
                 className="w-full text-center text-xs text-stone-400 hover:text-amber-300 flex items-center justify-center gap-1 mt-2"
               >
                 <ArrowLeft className="w-3.5 h-3.5" /> Back to Sign In
@@ -255,60 +321,12 @@ export default function AuthModal() {
             </form>
           )}
 
-          {/* RESET PASSWORD FORM */}
+          {/* STEP 2: RESET PASSWORD (OPTION TO SET NEW PASSWORD ON MATCH) */}
           {mode === 'reset' && (
             <form onSubmit={handleResetSubmit} className="space-y-3.5">
-              
-              <div className="p-3.5 rounded-xl border border-amber-500/30 bg-amber-500/10 text-xs flex flex-col gap-2.5">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5 text-amber-300 font-semibold">
-                    <Inbox className="w-4 h-4 text-amber-400" />
-                    <span>Check Your Inbox</span>
-                  </div>
-                  <a
-                    href={webmail.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-[11px] font-bold text-amber-400 underline hover:text-amber-300 inline-flex items-center gap-1"
-                  >
-                    {webmail.name} <ExternalLink className="w-3 h-3" />
-                  </a>
-                </div>
-
-                <div className="text-stone-300 text-[11px] leading-relaxed">
-                  We've sent a 6-digit code to <span className="font-mono text-amber-200 font-bold">{email}</span>. Click above to open your webmail inbox, or view your message below:
-                </div>
-
-                {dispatchCode && (
-                  <div className="mt-1 p-2 rounded-lg border border-amber-500/40 bg-amber-500/15 text-[11px] text-amber-200 flex items-center justify-between">
-                    <span className="opacity-90 flex items-center gap-1">
-                      <Send className="w-3 h-3 text-amber-400" /> Dispatched Code:
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setResetCode(dispatchCode)}
-                      title="Click to copy into verification field"
-                      className="font-mono font-bold tracking-widest text-amber-300 bg-black/50 hover:bg-amber-500 hover:text-stone-950 px-2.5 py-1 rounded border border-amber-500/30 transition-all cursor-pointer"
-                    >
-                      {dispatchCode}
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider opacity-70 mb-1">
-                  6-Digit Verification Code (From Email) *
-                </label>
-                <input
-                  type="text"
-                  required
-                  maxLength={6}
-                  value={resetCode}
-                  onChange={(e) => setResetCode(e.target.value)}
-                  placeholder="Enter 6-digit code"
-                  className="w-full px-3 py-2.5 rounded-xl border border-stone-700 bg-stone-900/70 text-sm tracking-widest text-center font-mono text-amber-300 focus:outline-none focus:border-amber-500"
-                />
+              <div className="p-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-xs text-emerald-300 flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
+                <span>Code matched for <strong className="text-emerald-200 font-mono">{email}</strong>. Enter your new password below.</span>
               </div>
 
               <div>
@@ -328,25 +346,42 @@ export default function AuthModal() {
                 </div>
               </div>
 
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider opacity-70 mb-1">
+                  Confirm New Password *
+                </label>
+                <div className="relative">
+                  <Lock className="w-4 h-4 absolute left-3 top-3 opacity-40" />
+                  <input
+                    type="password"
+                    required
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Re-enter new password"
+                    className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-stone-700 bg-stone-900/70 text-xs text-stone-100 focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+              </div>
+
               <button
                 type="submit"
                 disabled={isSubmitting}
                 className="w-full py-3 rounded-xl bg-gradient-to-r from-amber-500 via-amber-400 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-stone-950 font-bold text-xs shadow-lg shadow-amber-500/20 transition-all disabled:opacity-50"
               >
-                {isSubmitting ? 'Verifying...' : 'Save New Password & Sign In'}
+                {isSubmitting ? 'Updating Password...' : 'Save New Password & Sign In'}
               </button>
 
               <button
                 type="button"
-                onClick={() => { setMode('forgot'); setError(null); setResetCode(''); setDispatchCode(null); }}
+                onClick={() => { setMode('forgot'); setError(null); }}
                 className="w-full text-center text-xs text-stone-400 hover:text-amber-300 flex items-center justify-center gap-1 mt-2"
               >
-                <ArrowLeft className="w-3.5 h-3.5" /> Re-enter Email
+                <ArrowLeft className="w-3.5 h-3.5" /> Back to Verification
               </button>
             </form>
           )}
 
-          {/* LOGIN & REGISTER FORMS */}
+          {/* SIGN IN & REGISTER FORMS */}
           {(mode === 'login' || mode === 'register') && (
             <form onSubmit={handleSubmit} className="space-y-3.5">
               
@@ -429,6 +464,38 @@ export default function AuthModal() {
                   />
                 </div>
               </div>
+
+              {/* 4-WORD SECRET RECOVERY CODE AT REGISTRATION */}
+              {mode === 'register' && (
+                <div className="p-3 rounded-xl border border-amber-500/30 bg-amber-500/5 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
+                      <Key className="w-3.5 h-3.5 text-amber-400" />
+                      4-Word Secret Recovery Code *
+                    </label>
+                    <button
+                      type="button"
+                      onClick={handleSuggestWords}
+                      className="text-[11px] font-semibold text-amber-400 hover:text-amber-300 flex items-center gap-1 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20"
+                    >
+                      <Sparkles className="w-3 h-3" /> Suggest 4 Words
+                    </button>
+                  </div>
+                  
+                  <input
+                    type="text"
+                    required
+                    value={recoveryCode}
+                    onChange={(e) => setRecoveryCode(e.target.value)}
+                    placeholder="e.g. blue ocean silent moon"
+                    className="w-full px-3 py-2 rounded-lg border border-amber-500/40 bg-stone-900/90 text-xs font-mono text-amber-200 focus:outline-none focus:border-amber-400"
+                  />
+
+                  <div className="text-[11px] text-stone-300 leading-snug">
+                    💡 <strong>Remember this 4-word code!</strong> You will need it to reset your password if you ever forget it.
+                  </div>
+                </div>
+              )}
 
               {mode === 'register' && (
                 <>

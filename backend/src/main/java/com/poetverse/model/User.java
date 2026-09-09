@@ -37,6 +37,7 @@ public class User {
 
     private String resetPasswordToken;
     private Instant resetPasswordTokenExpiry;
+    private String recoveryCode;
 
     @Builder.Default
     private List<String> interestGenres = List.of();

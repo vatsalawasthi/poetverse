@@ -35,6 +35,16 @@ public class AuthController {
         }
     }
 
+    @PostMapping("/verify-recovery-code")
+    public ResponseEntity<?> verifyRecoveryCode(@RequestBody AuthDTO.VerifyRecoveryCodeRequest request) {
+        try {
+            Map<String, Object> result = userService.verifyRecoveryCode(request);
+            return ResponseEntity.ok(result);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
     @PostMapping("/forgot-password")
     public ResponseEntity<?> forgotPassword(@RequestBody AuthDTO.ForgotPasswordRequest request) {
         try {

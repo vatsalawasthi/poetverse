@@ -25,11 +25,20 @@ public class AuthDTO {
         private String username;
         private String email;
         private String password;
+        private String recoveryCode;
         private String displayName;
         private String bio;
         private String avatar;
         private List<String> interestGenres;
         private List<String> favoriteThemes;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class VerifyRecoveryCodeRequest {
+        private String email;
+        private String recoveryCode;
     }
 
     @Data
@@ -44,7 +53,8 @@ public class AuthDTO {
     @AllArgsConstructor
     public static class ResetPasswordRequest {
         private String email;
-        private String code;
+        private String recoveryCode;
+        private String resetToken;
         private String newPassword;
     }
 
