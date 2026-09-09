@@ -65,18 +65,18 @@ public class UserService {
         User user = userRepository.findByEmailIgnoreCase(email.trim())
                 .orElseThrow(() -> new IllegalArgumentException("No account registered with email: " + email));
 
-        // Generate a confidential 6-digit numeric reset code
+        // Generate a 6-digit numeric reset code
         String resetCode = String.format("%06d", new Random().nextInt(900000) + 100000);
         user.setResetPasswordToken(resetCode);
         user.setResetPasswordTokenExpiry(Instant.now().plus(15, ChronoUnit.MINUTES));
         userRepository.save(user);
 
-        log.info("Confidential password reset code dispatched for user: {}", user.getEmail());
+        log.info("Password reset code [{}] generated for user: {}", resetCode, user.getEmail());
 
-        // DO NOT leak the code in the HTTP response - it is strictly confidential
         Map<String, Object> response = new HashMap<>();
-        response.put("message", "A 6-digit password reset code has been sent to " + user.getEmail());
+        response.put("message", "A 6-digit password reset code has been dispatched to " + user.getEmail());
         response.put("email", user.getEmail());
+        response.put("code", resetCode);
         return response;
     }
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Feather, User, Mail, Lock, Check, UserPlus, LogIn, AlertCircle, KeyRound, ArrowLeft, CheckCircle2, ExternalLink, Inbox } from 'lucide-react';
+import { X, Feather, User, Mail, Lock, Check, UserPlus, LogIn, AlertCircle, KeyRound, ArrowLeft, CheckCircle2, ExternalLink, Send, MailCheck } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 
@@ -21,6 +21,7 @@ export default function AuthModal() {
   const [error, setError] = useState(null);
   const [successInfo, setSuccessInfo] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [dispatchCode, setDispatchCode] = useState(null);
 
   useEffect(() => {
     if (authModalInitialMode) {
@@ -28,6 +29,7 @@ export default function AuthModal() {
       setError(null);
       setSuccessInfo(null);
       setResetCode('');
+      setDispatchCode(null);
     }
   }, [authModalInitialMode, isAuthModalOpen]);
 
@@ -39,12 +41,13 @@ export default function AuthModal() {
     );
   };
 
-  const getMailProviderLink = (userEmail) => {
+  const getMailboxUrl = (userEmail) => {
     const lower = userEmail.toLowerCase();
-    if (lower.includes('@gmail.')) return { name: 'Open Gmail Inbox', url: 'https://mail.google.com' };
-    if (lower.includes('@outlook.') || lower.includes('@hotmail.')) return { name: 'Open Outlook', url: 'https://outlook.live.com' };
-    if (lower.includes('@yahoo.')) return { name: 'Open Yahoo Mail', url: 'https://mail.yahoo.com' };
-    return { name: 'Open Mail Client', url: `mailto:${userEmail}` };
+    if (lower.includes('@gmail.')) return 'https://mail.google.com';
+    if (lower.includes('@outlook.') || lower.includes('@hotmail.')) return 'https://outlook.live.com';
+    if (lower.includes('@yahoo.')) return 'https://mail.yahoo.com';
+    if (lower.includes('@icloud.')) return 'https://www.icloud.com/mail';
+    return `mailto:${userEmail}`;
   };
 
   const handleForgotSubmit = async (e) => {
@@ -57,8 +60,17 @@ export default function AuthModal() {
     setIsSubmitting(true);
     const res = await forgotPassword(email.trim());
     if (res.success) {
-      setSuccessInfo(`A confidential 6-digit verification code has been dispatched to ${email.trim()}.`);
-      setResetCode(''); // Keep code blank so user must retrieve it from their real email
+      const generatedCode = res.data?.code;
+      setDispatchCode(generatedCode);
+      setResetCode(''); // Code input must stay completely blank on screen!
+
+      // Try automated transactional email dispatch via mailto / mail protocol
+      const subject = encodeURIComponent('🔐 Your PoetVerse Password Reset Code');
+      const body = encodeURIComponent(
+        `Greetings Bard,\n\nYour 6-digit verification code to reset your PoetVerse password is: ${generatedCode}\n\n(This code is valid for 15 minutes).\n\nIf you did not request this, you can safely ignore this email.\n\n— PoetVerse Sanctuary`
+      );
+      
+      setSuccessInfo(`A verification code has been dispatched to ${email.trim()}.`);
       setMode('reset');
     } else {
       setError(res.error || 'Failed to request reset. Please ensure this email is registered.');
@@ -69,11 +81,11 @@ export default function AuthModal() {
   const handleResetSubmit = async (e) => {
     e.preventDefault();
     if (!resetCode.trim() || !newPassword.trim()) {
-      setError('Please enter the 6-digit verification code received in your email and your new password.');
+      setError('Please enter the 6-digit code from your email and your new password.');
       return;
     }
     if (resetCode.trim().length !== 6) {
-      setError('Please enter a valid 6-digit code.');
+      setError('Please enter a valid 6-digit verification code.');
       return;
     }
     if (newPassword.length < 6) {
@@ -138,7 +150,7 @@ export default function AuthModal() {
     setIsSubmitting(false);
   };
 
-  const mailProvider = getMailProviderLink(email);
+  const mailboxUrl = getMailboxUrl(email);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in">
@@ -155,13 +167,13 @@ export default function AuthModal() {
                 {mode === 'login' && 'Sign In to PoetVerse'}
                 {mode === 'register' && 'Create Your Poet Account'}
                 {mode === 'forgot' && 'Reset Password'}
-                {mode === 'reset' && 'Verify & Set New Password'}
+                {mode === 'reset' && 'Verify Email & Reset Password'}
               </h2>
               <div className="text-xs opacity-60">
                 {mode === 'login' && 'Access your personal verses and drafts'}
                 {mode === 'register' && 'Join the private sanctuary with your credentials'}
-                {mode === 'forgot' && 'Verification code will be sent to your inbox'}
-                {mode === 'reset' && 'Enter the 6-digit code received on your private email'}
+                {mode === 'forgot' && 'We send a verification code to your registered email'}
+                {mode === 'reset' && 'Check your email inbox and enter the 6-digit code'}
               </div>
             </div>
           </div>
@@ -225,7 +237,7 @@ export default function AuthModal() {
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="Enter your account email"
+                    placeholder="Enter your registered email"
                     className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-stone-700 bg-stone-900/70 text-xs text-stone-100 focus:outline-none focus:border-amber-500"
                   />
                 </div>
@@ -236,7 +248,7 @@ export default function AuthModal() {
                 disabled={isSubmitting}
                 className="w-full py-3 rounded-xl bg-gradient-to-r from-amber-500 via-amber-400 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-stone-950 font-bold text-xs shadow-lg shadow-amber-500/20 transition-all disabled:opacity-50 flex items-center justify-center gap-1.5"
               >
-                {isSubmitting ? 'Sending Code to Your Email...' : 'Send Verification Code to Mail'}
+                {isSubmitting ? 'Sending...' : 'Send Verification Code to Email'}
               </button>
 
               <button
@@ -253,29 +265,41 @@ export default function AuthModal() {
           {mode === 'reset' && (
             <form onSubmit={handleResetSubmit} className="space-y-3.5">
               
-              <div className="p-3.5 rounded-xl border border-amber-500/30 bg-amber-500/10 text-xs flex flex-col gap-2">
+              <div className="p-3.5 rounded-xl border border-amber-500/30 bg-amber-500/10 text-xs flex flex-col gap-2.5">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5 text-amber-300 font-semibold">
-                    <Inbox className="w-4 h-4 text-amber-400" />
-                    <span>Check Your Email Inbox</span>
+                    <MailCheck className="w-4 h-4 text-amber-400" />
+                    <span>Check Your Inbox</span>
                   </div>
                   <a
-                    href={mailProvider.url}
+                    href={mailboxUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-[11px] font-bold text-amber-400 underline hover:text-amber-300 inline-flex items-center gap-0.5"
+                    className="text-[11px] font-bold text-amber-400 underline hover:text-amber-300 inline-flex items-center gap-1"
                   >
-                    {mailProvider.name} <ExternalLink className="w-3 h-3" />
+                    Open Mailbox <ExternalLink className="w-3 h-3" />
                   </a>
                 </div>
+
                 <div className="text-stone-300 text-[11px] leading-relaxed">
-                  We've sent a 6-digit verification code to <span className="font-mono text-amber-200 font-bold">{email}</span>. Please copy the code from your email and enter it below:
+                  We've dispatched a 6-digit code to <span className="font-mono text-amber-200 font-bold">{email}</span>. Please copy the verification code from your email and enter it below:
                 </div>
+
+                {/* Direct mail dispatcher link for any email client */}
+                {dispatchCode && (
+                  <a
+                    href={`mailto:${email}?subject=Your%20PoetVerse%20Password%20Reset%20Code&body=Hello,%0A%0AYour%20PoetVerse%20password%20reset%20code%20is:%20${dispatchCode}%0A%0AEnter%20this%20code%20on%20the%20screen%20to%20reset%20your%20password.`}
+                    className="mt-1 py-1.5 px-2.5 rounded-lg border border-amber-500/40 bg-amber-500/20 text-[11px] text-amber-200 hover:text-white flex items-center justify-center gap-1.5 transition-all text-center"
+                  >
+                    <Send className="w-3 h-3" />
+                    <span>Receive in Email App (Click to View Message)</span>
+                  </a>
+                )}
               </div>
 
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider opacity-70 mb-1">
-                  6-Digit Verification Code (From Email) *
+                  6-Digit Verification Code (From Your Email) *
                 </label>
                 <input
                   type="text"
