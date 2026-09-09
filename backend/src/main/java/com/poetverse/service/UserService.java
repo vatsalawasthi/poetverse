@@ -252,7 +252,7 @@ public class UserService {
 
         // 2. Delete user comments
         try {
-            commentRepository.deleteByAuthorId(userId);
+            commentRepository.deleteByUserId(userId);
         } catch (Exception ignored) {}
 
         // 3. Delete user's lead collaborations
