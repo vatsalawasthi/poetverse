@@ -33,6 +33,22 @@ public class AuthDTO {
     }
 
     @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class ForgotPasswordRequest {
+        private String email;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class ResetPasswordRequest {
+        private String email;
+        private String code;
+        private String newPassword;
+    }
+
+    @Data
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor

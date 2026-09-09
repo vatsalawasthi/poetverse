@@ -6,6 +6,8 @@ import com.poetverse.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 
 @Service
@@ -25,7 +27,7 @@ public class UserService {
         User user = User.builder()
                 .username(request.getUsername().trim())
                 .email(request.getEmail().trim().toLowerCase())
-                .password(request.getPassword()) // In production, hash with BCrypt
+                .password(request.getPassword())
                 .displayName(request.getDisplayName() != null && !request.getDisplayName().isBlank() 
                         ? request.getDisplayName().trim() 
                         : request.getUsername().trim())
@@ -53,6 +55,43 @@ public class UserService {
         if (!user.getPassword().equals(request.getPassword())) {
             throw new IllegalArgumentException("Invalid username or password");
         }
+
+        return mapToAuthResponse(user);
+    }
+
+    public Map<String, Object> forgotPassword(String email) {
+        User user = userRepository.findByEmailIgnoreCase(email.trim())
+                .orElseThrow(() -> new IllegalArgumentException("No account registered with email: " + email));
+
+        // Generate a 6-digit numeric reset code
+        String resetCode = String.format("%06d", new Random().nextInt(900000) + 100000);
+        user.setResetPasswordToken(resetCode);
+        user.setResetPasswordTokenExpiry(Instant.now().plus(15, ChronoUnit.MINUTES));
+        userRepository.save(user);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("message", "A password reset code has been sent to your email.");
+        response.put("email", user.getEmail());
+        response.put("resetCode", resetCode); // Available for verification modal
+        return response;
+    }
+
+    public AuthDTO.AuthResponse resetPassword(AuthDTO.ResetPasswordRequest request) {
+        User user = userRepository.findByEmailIgnoreCase(request.getEmail().trim())
+                .orElseThrow(() -> new IllegalArgumentException("No account registered with email: " + request.getEmail()));
+
+        if (user.getResetPasswordToken() == null || !user.getResetPasswordToken().equals(request.getCode().trim())) {
+            throw new IllegalArgumentException("Invalid verification code");
+        }
+
+        if (user.getResetPasswordTokenExpiry() == null || user.getResetPasswordTokenExpiry().isBefore(Instant.now())) {
+            throw new IllegalArgumentException("Reset code has expired. Please request a new one.");
+        }
+
+        user.setPassword(request.getNewPassword().trim());
+        user.setResetPasswordToken(null);
+        user.setResetPasswordTokenExpiry(null);
+        userRepository.save(user);
 
         return mapToAuthResponse(user);
     }

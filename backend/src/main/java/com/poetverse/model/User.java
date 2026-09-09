@@ -35,11 +35,14 @@ public class User {
     private String avatar;
     private String location;
 
-    @Builder.Default
-    private List<String> interestGenres = List.of(); // e.g. ["Haiku", "Sonnet", "Free Verse", "Ghazal", "Spoken Word"]
+    private String resetPasswordToken;
+    private Instant resetPasswordTokenExpiry;
 
     @Builder.Default
-    private List<String> favoriteThemes = List.of(); // e.g. ["Melancholy", "Love", "Nature", "Philosophy", "Resistance"]
+    private List<String> interestGenres = List.of();
+
+    @Builder.Default
+    private List<String> favoriteThemes = List.of();
 
     @Builder.Default
     private Set<String> followers = new HashSet<>();
@@ -51,7 +54,7 @@ public class User {
     private Set<String> bookmarkedPoemIds = new HashSet<>();
 
     @Builder.Default
-    private List<String> badges = List.of(); // e.g. ["Master Sonneteer", "Verse Weaver", "100 Applause"]
+    private List<String> badges = List.of();
 
     @Builder.Default
     private Instant createdAt = Instant.now();

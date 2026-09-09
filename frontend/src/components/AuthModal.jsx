@@ -1,28 +1,32 @@
 import React, { useState, useEffect } from 'react';
-import { X, Feather, User, Mail, Lock, Check, UserPlus, LogIn, AlertCircle } from 'lucide-react';
+import { X, Feather, User, Mail, Lock, Check, UserPlus, LogIn, AlertCircle, KeyRound, ArrowLeft, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 
 const AVAILABLE_GENRES = ["Free Verse", "Sonnets", "Haiku & Tanka", "Ghazal", "Spoken Word", "Romanticism", "Elegies", "Ballads"];
 
 export default function AuthModal() {
-  const { isAuthModalOpen, closeAuthModal, authModalInitialMode, login, register } = useAuth();
+  const { isAuthModalOpen, closeAuthModal, authModalInitialMode, login, register, forgotPassword, resetPassword } = useAuth();
   const { theme } = useTheme();
 
-  const [mode, setMode] = useState('login'); // 'login' or 'register'
+  const [mode, setMode] = useState('login'); // 'login', 'register', 'forgot', 'reset'
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [resetCode, setResetCode] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [bio, setBio] = useState('');
   const [selectedGenres, setSelectedGenres] = useState(['Free Verse', 'Sonnets']);
   const [error, setError] = useState(null);
+  const [successInfo, setSuccessInfo] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (authModalInitialMode) {
       setMode(authModalInitialMode);
       setError(null);
+      setSuccessInfo(null);
     }
   }, [authModalInitialMode, isAuthModalOpen]);
 
@@ -32,6 +36,55 @@ export default function AuthModal() {
     setSelectedGenres(prev => 
       prev.includes(genre) ? prev.filter(g => g !== genre) : [...prev, genre]
     );
+  };
+
+  const handleForgotSubmit = async (e) => {
+    e.preventDefault();
+    if (!email.trim()) {
+      setError('Please enter your registered email address.');
+      return;
+    }
+    setError(null);
+    setIsSubmitting(true);
+    const res = await forgotPassword(email.trim());
+    if (res.success) {
+      setSuccessInfo(`Reset code sent to ${email.trim()}! Check your inbox or enter code below.`);
+      if (res.data?.resetCode) {
+        setResetCode(res.data.resetCode);
+      }
+      setMode('reset');
+    } else {
+      setError(res.error || 'Failed to request password reset.');
+    }
+    setIsSubmitting(false);
+  };
+
+  const handleResetSubmit = async (e) => {
+    e.preventDefault();
+    if (!resetCode.trim() || !newPassword.trim()) {
+      setError('Please provide the 6-digit code and your new password.');
+      return;
+    }
+    if (newPassword.length < 6) {
+      setError('New password must be at least 6 characters long.');
+      return;
+    }
+    setError(null);
+    setIsSubmitting(true);
+    const res = await resetPassword({
+      email: email.trim(),
+      code: resetCode.trim(),
+      newPassword: newPassword.trim(),
+    });
+    if (res.success) {
+      setSuccessInfo('Password successfully updated! You are now signed in.');
+      setTimeout(() => {
+        closeAuthModal();
+      }, 1200);
+    } else {
+      setError(res.error || 'Invalid or expired code.');
+    }
+    setIsSubmitting(false);
   };
 
   const handleSubmit = async (e) => {
@@ -44,7 +97,7 @@ export default function AuthModal() {
       if (!res.success) {
         setError(res.error || 'Invalid credentials. Please check your username/password.');
       }
-    } else {
+    } else if (mode === 'register') {
       if (!email.trim() || !password.trim() || !username.trim()) {
         setError('Please fill in username, email, and password.');
         setIsSubmitting(false);
@@ -82,14 +135,20 @@ export default function AuthModal() {
         <div className={`flex items-center justify-between px-6 py-4 border-b ${theme.border}`}>
           <div className="flex items-center gap-2.5">
             <div className="p-2 rounded-lg bg-amber-500/10 text-amber-400">
-              <Feather className="w-5 h-5" />
+              {mode === 'forgot' || mode === 'reset' ? <KeyRound className="w-5 h-5" /> : <Feather className="w-5 h-5" />}
             </div>
             <div>
               <h2 className="font-heading text-lg font-bold text-amber-200">
-                {mode === 'login' ? 'Sign In to PoetVerse' : 'Create Your Poet Account'}
+                {mode === 'login' && 'Sign In to PoetVerse'}
+                {mode === 'register' && 'Create Your Poet Account'}
+                {mode === 'forgot' && 'Reset Password'}
+                {mode === 'reset' && 'Set New Password'}
               </h2>
               <div className="text-xs opacity-60">
-                {mode === 'login' ? 'Access your personal verses and drafts' : 'Join the private sanctuary with your credentials'}
+                {mode === 'login' && 'Access your personal verses and drafts'}
+                {mode === 'register' && 'Join the private sanctuary with your credentials'}
+                {mode === 'forgot' && 'We will send a reset code to your registered email'}
+                {mode === 'reset' && 'Enter the 6-digit code and choose a new password'}
               </div>
             </div>
           </div>
@@ -102,73 +161,49 @@ export default function AuthModal() {
           </button>
         </div>
 
-        {/* Mode Switcher Tabs */}
-        <div className="flex border-b border-stone-800/80">
-          <button
-            onClick={() => { setMode('login'); setError(null); }}
-            className={`flex-1 py-3 text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${mode === 'login' ? 'border-b-2 border-amber-400 text-amber-300 bg-amber-500/10' : 'opacity-60 hover:opacity-100'}`}
-          >
-            <LogIn className="w-3.5 h-3.5" />
-            <span>Sign In</span>
-          </button>
+        {/* Mode Switcher Tabs for Login/Register */}
+        {(mode === 'login' || mode === 'register') && (
+          <div className="flex border-b border-stone-800/80">
+            <button
+              onClick={() => { setMode('login'); setError(null); setSuccessInfo(null); }}
+              className={`flex-1 py-3 text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${mode === 'login' ? 'border-b-2 border-amber-400 text-amber-300 bg-amber-500/10' : 'opacity-60 hover:opacity-100'}`}
+            >
+              <LogIn className="w-3.5 h-3.5" />
+              <span>Sign In</span>
+            </button>
 
-          <button
-            onClick={() => { setMode('register'); setError(null); }}
-            className={`flex-1 py-3 text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${mode === 'register' ? 'border-b-2 border-amber-400 text-amber-300 bg-amber-500/10' : 'opacity-60 hover:opacity-100'}`}
-          >
-            <UserPlus className="w-3.5 h-3.5" />
-            <span>Create Account</span>
-          </button>
-        </div>
+            <button
+              onClick={() => { setMode('register'); setError(null); setSuccessInfo(null); }}
+              className={`flex-1 py-3 text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${mode === 'register' ? 'border-b-2 border-amber-400 text-amber-300 bg-amber-500/10' : 'opacity-60 hover:opacity-100'}`}
+            >
+              <UserPlus className="w-3.5 h-3.5" />
+              <span>Create Account</span>
+            </button>
+          </div>
+        )}
 
         {/* Content Form */}
         <div className="p-6 max-h-[75vh] overflow-y-auto">
           {error && (
-            <div className="mb-4 p-3 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2">
+            <div className="mb-4 p-3 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2 animate-in fade-in">
               <AlertCircle className="w-4 h-4 shrink-0" />
               <span>{error}</span>
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-3.5">
-            
-            {mode === 'register' && (
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider opacity-70 mb-1">
-                  Full Name / Display Name *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={displayName}
-                  onChange={(e) => setDisplayName(e.target.value)}
-                  placeholder="e.g. Maya Angelou, John Keats, or Your Name"
-                  className="w-full px-3 py-2.5 rounded-xl border border-stone-700 bg-stone-900/70 text-xs text-stone-100 focus:outline-none focus:border-amber-500"
-                />
-              </div>
-            )}
-
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider opacity-70 mb-1">
-                {mode === 'login' ? 'Username or Email *' : 'Choose Username *'}
-              </label>
-              <div className="relative">
-                <User className="w-4 h-4 absolute left-3 top-3 opacity-40" />
-                <input
-                  type="text"
-                  required
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  placeholder={mode === 'login' ? 'Enter username or email' : 'e.g. poetry_soul'}
-                  className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-stone-700 bg-stone-900/70 text-xs text-stone-100 focus:outline-none focus:border-amber-500"
-                />
-              </div>
+          {successInfo && (
+            <div className="mb-4 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs flex items-center gap-2 animate-in fade-in">
+              <CheckCircle2 className="w-4 h-4 shrink-0" />
+              <span>{successInfo}</span>
             </div>
+          )}
 
-            {mode === 'register' && (
+          {/* FORGOT PASSWORD FORM */}
+          {mode === 'forgot' && (
+            <form onSubmit={handleForgotSubmit} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider opacity-70 mb-1">
-                  Personal Email *
+                  Your Registered Email Address *
                 </label>
                 <div className="relative">
                   <Mail className="w-4 h-4 absolute left-3 top-3 opacity-40" />
@@ -177,101 +212,252 @@ export default function AuthModal() {
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="your.name@gmail.com"
+                    placeholder="poet@example.com"
                     className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-stone-700 bg-stone-900/70 text-xs text-stone-100 focus:outline-none focus:border-amber-500"
                   />
                 </div>
               </div>
-            )}
 
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider opacity-70 mb-1">
-                Password *
-              </label>
-              <div className="relative">
-                <Lock className="w-4 h-4 absolute left-3 top-3 opacity-40" />
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="w-full py-3 rounded-xl bg-gradient-to-r from-amber-500 via-amber-400 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-stone-950 font-bold text-xs shadow-lg shadow-amber-500/20 transition-all disabled:opacity-50 flex items-center justify-center gap-1.5"
+              >
+                {isSubmitting ? 'Sending Code...' : 'Send Reset Code to Mail'}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => { setMode('login'); setError(null); }}
+                className="w-full text-center text-xs text-stone-400 hover:text-amber-300 flex items-center justify-center gap-1 mt-2"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" /> Back to Sign In
+              </button>
+            </form>
+          )}
+
+          {/* RESET PASSWORD FORM */}
+          {mode === 'reset' && (
+            <form onSubmit={handleResetSubmit} className="space-y-3.5">
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider opacity-70 mb-1">
+                  Account Email
+                </label>
                 <input
-                  type="password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-stone-700 bg-stone-900/70 text-xs text-stone-100 focus:outline-none focus:border-amber-500"
+                  type="email"
+                  disabled
+                  value={email}
+                  className="w-full px-3 py-2 rounded-xl border border-stone-800 bg-stone-900/40 text-xs text-stone-400"
                 />
               </div>
-            </div>
 
-            {mode === 'register' && (
-              <>
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider opacity-70 mb-1">
-                    Poet Bio (Optional)
-                  </label>
-                  <textarea
-                    value={bio}
-                    onChange={(e) => setBio(e.target.value)}
-                    placeholder="Brief line about your themes and writing style..."
-                    rows={2}
-                    className="w-full p-2.5 rounded-xl border border-stone-700 bg-stone-900/70 text-xs text-stone-100 focus:outline-none focus:border-amber-500 resize-none"
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider opacity-70 mb-1">
+                  6-Digit Verification Code *
+                </label>
+                <input
+                  type="text"
+                  required
+                  maxLength={6}
+                  value={resetCode}
+                  onChange={(e) => setResetCode(e.target.value)}
+                  placeholder="123456"
+                  className="w-full px-3 py-2.5 rounded-xl border border-stone-700 bg-stone-900/70 text-sm tracking-widest text-center font-mono text-amber-300 focus:outline-none focus:border-amber-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider opacity-70 mb-1">
+                  New Password *
+                </label>
+                <div className="relative">
+                  <Lock className="w-4 h-4 absolute left-3 top-3 opacity-40" />
+                  <input
+                    type="password"
+                    required
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Enter new password (min 6 chars)"
+                    className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-stone-700 bg-stone-900/70 text-xs text-stone-100 focus:outline-none focus:border-amber-500"
                   />
                 </div>
+              </div>
 
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider opacity-70 mb-1.5">
-                    Your Preferred Poetic Genres
-                  </label>
-                  <div className="flex flex-wrap gap-1.5">
-                    {AVAILABLE_GENRES.map((g) => {
-                      const selected = selectedGenres.includes(g);
-                      return (
-                        <button
-                          type="button"
-                          key={g}
-                          onClick={() => toggleGenre(g)}
-                          className={`text-xs px-2.5 py-1 rounded-lg border transition-all ${
-                            selected ? 'bg-amber-500 text-stone-950 font-bold border-amber-400' : 'border-stone-700 bg-stone-900/50 opacity-70 hover:opacity-100'
-                          }`}
-                        >
-                          {selected && <Check className="w-3 h-3 inline mr-1" />}
-                          {g}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              </>
-            )}
-
-            <div className="pt-2">
               <button
                 type="submit"
                 disabled={isSubmitting}
                 className="w-full py-3 rounded-xl bg-gradient-to-r from-amber-500 via-amber-400 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-stone-950 font-bold text-xs shadow-lg shadow-amber-500/20 transition-all disabled:opacity-50"
               >
-                {isSubmitting ? 'Authenticating...' : mode === 'login' ? 'Sign In Securely' : 'Create Private Account'}
+                {isSubmitting ? 'Updating Password...' : 'Save New Password & Sign In'}
               </button>
-            </div>
 
-            <div className="text-center pt-2">
-              {mode === 'login' ? (
-                <button
-                  type="button"
-                  onClick={() => { setMode('register'); setError(null); }}
-                  className="text-xs text-amber-400 hover:underline"
-                >
-                  New to PoetVerse? Create an account
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => { setMode('login'); setError(null); }}
-                  className="text-xs text-amber-400 hover:underline"
-                >
-                  Already have an account? Sign in
-                </button>
+              <button
+                type="button"
+                onClick={() => { setMode('forgot'); setError(null); }}
+                className="w-full text-center text-xs text-stone-400 hover:text-amber-300 flex items-center justify-center gap-1 mt-2"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" /> Resend Code
+              </button>
+            </form>
+          )}
+
+          {/* LOGIN & REGISTER FORMS */}
+          {(mode === 'login' || mode === 'register') && (
+            <form onSubmit={handleSubmit} className="space-y-3.5">
+              
+              {mode === 'register' && (
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider opacity-70 mb-1">
+                    Full Name / Display Name *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={displayName}
+                    onChange={(e) => setDisplayName(e.target.value)}
+                    placeholder="e.g. Maya Angelou, John Keats, or Your Name"
+                    className="w-full px-3 py-2.5 rounded-xl border border-stone-700 bg-stone-900/70 text-xs text-stone-100 focus:outline-none focus:border-amber-500"
+                  />
+                </div>
               )}
-            </div>
-          </form>
+
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider opacity-70 mb-1">
+                  {mode === 'login' ? 'Username or Email *' : 'Choose Username *'}
+                </label>
+                <div className="relative">
+                  <User className="w-4 h-4 absolute left-3 top-3 opacity-40" />
+                  <input
+                    type="text"
+                    required
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    placeholder={mode === 'login' ? 'Enter username or email' : 'e.g. poetry_soul'}
+                    className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-stone-700 bg-stone-900/70 text-xs text-stone-100 focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+              </div>
+
+              {mode === 'register' && (
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider opacity-70 mb-1">
+                    Personal Email *
+                  </label>
+                  <div className="relative">
+                    <Mail className="w-4 h-4 absolute left-3 top-3 opacity-40" />
+                    <input
+                      type="email"
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="your.name@gmail.com"
+                      className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-stone-700 bg-stone-900/70 text-xs text-stone-100 focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-semibold uppercase tracking-wider opacity-70">
+                    Password *
+                  </label>
+                  {mode === 'login' && (
+                    <button
+                      type="button"
+                      onClick={() => { setMode('forgot'); setError(null); setSuccessInfo(null); }}
+                      className="text-[11px] text-amber-400/90 hover:text-amber-300 hover:underline"
+                    >
+                      Forgot password?
+                    </button>
+                  )}
+                </div>
+                <div className="relative">
+                  <Lock className="w-4 h-4 absolute left-3 top-3 opacity-40" />
+                  <input
+                    type="password"
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-stone-700 bg-stone-900/70 text-xs text-stone-100 focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+              </div>
+
+              {mode === 'register' && (
+                <>
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider opacity-70 mb-1">
+                      Poet Bio (Optional)
+                    </label>
+                    <textarea
+                      value={bio}
+                      onChange={(e) => setBio(e.target.value)}
+                      placeholder="Brief line about your themes and writing style..."
+                      rows={2}
+                      className="w-full p-2.5 rounded-xl border border-stone-700 bg-stone-900/70 text-xs text-stone-100 focus:outline-none focus:border-amber-500 resize-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider opacity-70 mb-1.5">
+                      Your Preferred Poetic Genres
+                    </label>
+                    <div className="flex flex-wrap gap-1.5">
+                      {AVAILABLE_GENRES.map((g) => {
+                        const selected = selectedGenres.includes(g);
+                        return (
+                          <button
+                            type="button"
+                            key={g}
+                            onClick={() => toggleGenre(g)}
+                            className={`text-xs px-2.5 py-1 rounded-lg border transition-all ${
+                              selected ? 'bg-amber-500 text-stone-950 font-bold border-amber-400' : 'border-stone-700 bg-stone-900/50 opacity-70 hover:opacity-100'
+                            }`}
+                          >
+                            {selected && <Check className="w-3 h-3 inline mr-1" />}
+                            {g}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </>
+              )}
+
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="w-full py-3 rounded-xl bg-gradient-to-r from-amber-500 via-amber-400 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-stone-950 font-bold text-xs shadow-lg shadow-amber-500/20 transition-all disabled:opacity-50"
+                >
+                  {isSubmitting ? 'Authenticating...' : mode === 'login' ? 'Sign In Securely' : 'Create Private Account'}
+                </button>
+              </div>
+
+              <div className="text-center pt-2">
+                {mode === 'login' ? (
+                  <button
+                    type="button"
+                    onClick={() => { setMode('register'); setError(null); }}
+                    className="text-xs text-amber-400 hover:underline"
+                  >
+                    New to PoetVerse? Create an account
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => { setMode('login'); setError(null); }}
+                    className="text-xs text-amber-400 hover:underline"
+                  >
+                    Already have an account? Sign in
+                  </button>
+                )}
+              </div>
+            </form>
+          )}
+
         </div>
 
       </div>

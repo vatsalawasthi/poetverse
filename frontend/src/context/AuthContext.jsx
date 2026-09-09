@@ -11,7 +11,7 @@ export const AuthProvider = ({ children }) => {
   });
 
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  const [authModalInitialMode, setAuthModalInitialMode] = useState('login'); // 'login' or 'register'
+  const [authModalInitialMode, setAuthModalInitialMode] = useState('login'); // 'login', 'register', 'forgot'
 
   useEffect(() => {
     if (currentUser) {
@@ -35,7 +35,6 @@ export const AuthProvider = ({ children }) => {
       setIsAuthModalOpen(false);
       return { success: true, user: res.data };
     } catch (err) {
-      // Strict rejection: Never allow unauthorized access
       const errorMessage = typeof err.response?.data === 'string' 
         ? err.response.data 
         : (err.response?.data?.message || 'Invalid username/email or password.');
@@ -67,6 +66,32 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const forgotPassword = async (email) => {
+    try {
+      const res = await authAPI.forgotPassword(email.trim());
+      return { success: true, data: res.data };
+    } catch (err) {
+      const errorMessage = typeof err.response?.data === 'string'
+        ? err.response.data
+        : (err.response?.data?.message || 'Failed to send reset code. Please check your email.');
+      return { success: false, error: errorMessage };
+    }
+  };
+
+  const resetPassword = async (resetData) => {
+    try {
+      const res = await authAPI.resetPassword(resetData);
+      setCurrentUser(res.data);
+      setIsAuthModalOpen(false);
+      return { success: true, user: res.data };
+    } catch (err) {
+      const errorMessage = typeof err.response?.data === 'string'
+        ? err.response.data
+        : (err.response?.data?.message || 'Invalid or expired code. Please try again.');
+      return { success: false, error: errorMessage };
+    }
+  };
+
   const logout = () => {
     setCurrentUser(null);
     localStorage.removeItem('poetverse_user');
@@ -79,6 +104,11 @@ export const AuthProvider = ({ children }) => {
 
   const openLoginModal = () => {
     setAuthModalInitialMode('login');
+    setIsAuthModalOpen(true);
+  };
+
+  const openForgotModal = () => {
+    setAuthModalInitialMode('forgot');
     setIsAuthModalOpen(true);
   };
 
@@ -147,9 +177,12 @@ export const AuthProvider = ({ children }) => {
         openAuthModal: () => openLoginModal(),
         openRegisterModal,
         openLoginModal,
+        openForgotModal,
         closeAuthModal: () => setIsAuthModalOpen(false),
         login,
         register,
+        forgotPassword,
+        resetPassword,
         logout,
         toggleFollow,
         toggleBookmark,
