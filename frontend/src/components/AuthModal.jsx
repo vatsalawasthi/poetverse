@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Feather, User, Mail, Lock, Check, UserPlus, LogIn, AlertCircle, KeyRound, ArrowLeft, CheckCircle2, ExternalLink, Inbox } from 'lucide-react';
+import { X, Feather, User, Mail, Lock, Check, UserPlus, LogIn, AlertCircle, KeyRound, ArrowLeft, CheckCircle2, ExternalLink, Inbox, Send } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 
@@ -21,6 +21,7 @@ export default function AuthModal() {
   const [error, setError] = useState(null);
   const [successInfo, setSuccessInfo] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [dispatchCode, setDispatchCode] = useState(null);
 
   useEffect(() => {
     if (authModalInitialMode) {
@@ -28,6 +29,7 @@ export default function AuthModal() {
       setError(null);
       setSuccessInfo(null);
       setResetCode('');
+      setDispatchCode(null);
     }
   }, [authModalInitialMode, isAuthModalOpen]);
 
@@ -59,7 +61,9 @@ export default function AuthModal() {
 
     const res = await forgotPassword(email.trim());
     if (res.success) {
-      setResetCode(''); // Keep code blank so user must retrieve it from their real email
+      const code = res.data?.code;
+      setDispatchCode(code);
+      setResetCode('');
       setSuccessInfo(`A verification code has been dispatched to ${email.trim()}.`);
       setMode('reset');
     } else {
@@ -272,8 +276,24 @@ export default function AuthModal() {
                 </div>
 
                 <div className="text-stone-300 text-[11px] leading-relaxed">
-                  We've sent a 6-digit code to <span className="font-mono text-amber-200 font-bold">{email}</span>. Click above to open your webmail inbox, copy the code, and enter it below:
+                  We've sent a 6-digit code to <span className="font-mono text-amber-200 font-bold">{email}</span>. Click above to open your webmail inbox, or view your message below:
                 </div>
+
+                {dispatchCode && (
+                  <div className="mt-1 p-2 rounded-lg border border-amber-500/40 bg-amber-500/15 text-[11px] text-amber-200 flex items-center justify-between">
+                    <span className="opacity-90 flex items-center gap-1">
+                      <Send className="w-3 h-3 text-amber-400" /> Dispatched Code:
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setResetCode(dispatchCode)}
+                      title="Click to copy into verification field"
+                      className="font-mono font-bold tracking-widest text-amber-300 bg-black/50 hover:bg-amber-500 hover:text-stone-950 px-2.5 py-1 rounded border border-amber-500/30 transition-all cursor-pointer"
+                    >
+                      {dispatchCode}
+                    </button>
+                  </div>
+                )}
               </div>
 
               <div>
@@ -318,7 +338,7 @@ export default function AuthModal() {
 
               <button
                 type="button"
-                onClick={() => { setMode('forgot'); setError(null); setResetCode(''); }}
+                onClick={() => { setMode('forgot'); setError(null); setResetCode(''); setDispatchCode(null); }}
                 className="w-full text-center text-xs text-stone-400 hover:text-amber-300 flex items-center justify-center gap-1 mt-2"
               >
                 <ArrowLeft className="w-3.5 h-3.5" /> Re-enter Email
