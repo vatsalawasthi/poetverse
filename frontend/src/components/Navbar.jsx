@@ -18,11 +18,11 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 
 export default function Navbar() {
-  const { currentUser, personas, switchPersona, logout, openLoginModal, openRegisterModal } = useAuth();
+  const { currentUser, logout, openLoginModal, openRegisterModal } = useAuth();
   const { theme, setTheme, themes } = useTheme();
   const location = useLocation();
 
-  const [isPersonaOpen, setIsPersonaOpen] = useState(false);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isThemeOpen, setIsThemeOpen] = useState(false);
 
   const navLinks = [
@@ -86,7 +86,7 @@ export default function Navbar() {
           })}
         </nav>
 
-        {/* Right Actions: Create, Theme, User Auth / Register */}
+        {/* Right Actions: Create, Theme, User Auth / Dropdown */}
         <div className="flex items-center gap-3">
           
           {/* Pen Verse Button */}
@@ -101,7 +101,7 @@ export default function Navbar() {
           {/* Theme Palette Dropdown */}
           <div className="relative">
             <button
-              onClick={() => { setIsThemeOpen(!isThemeOpen); setIsPersonaOpen(false); }}
+              onClick={() => { setIsThemeOpen(!isThemeOpen); setIsProfileOpen(false); }}
               title="Reading Atmosphere"
               className={`p-2 rounded-lg border transition-all ${theme.border} hover:bg-stone-800/40 opacity-80 hover:opacity-100`}
             >
@@ -135,7 +135,7 @@ export default function Navbar() {
           {currentUser ? (
             <div className="relative">
               <button
-                onClick={() => { setIsPersonaOpen(!isPersonaOpen); setIsThemeOpen(false); }}
+                onClick={() => { setIsProfileOpen(!isProfileOpen); setIsThemeOpen(false); }}
                 className={`flex items-center gap-2 p-1.5 pr-2.5 rounded-lg border transition-all ${theme.border} hover:bg-stone-800/40`}
               >
                 <img
@@ -149,17 +149,17 @@ export default function Navbar() {
                 <ChevronDown className="w-3 h-3 opacity-60" />
               </button>
 
-              {isPersonaOpen && (
-                <div className={`absolute right-0 mt-2 w-64 rounded-xl shadow-2xl border p-2 z-50 ${theme.cardBg} ${theme.border} animate-in fade-in zoom-in-95`}>
+              {isProfileOpen && (
+                <div className={`absolute right-0 mt-2 w-56 rounded-xl shadow-2xl border p-2 z-50 ${theme.cardBg} ${theme.border} animate-in fade-in zoom-in-95`}>
                   
-                  {/* Current User */}
+                  {/* Current User Info */}
                   <Link
                     to={`/profile/${currentUser.username}`}
-                    onClick={() => setIsPersonaOpen(false)}
-                    className="flex items-center gap-3 p-2 rounded-lg hover:bg-stone-800/40 transition-all mb-2 border-b border-stone-800/60 pb-3"
+                    onClick={() => setIsProfileOpen(false)}
+                    className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-stone-800/40 transition-all border-b border-stone-800/60 pb-3"
                   >
                     <img
-                      src={currentUser.avatar}
+                      src={currentUser.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
                       alt={currentUser.displayName}
                       className="w-10 h-10 rounded-full object-cover border border-amber-400/50"
                     />
@@ -173,47 +173,22 @@ export default function Navbar() {
                     </div>
                   </Link>
 
-                  {/* Switch Persona / Demo */}
-                  <div className="text-[11px] font-semibold px-2 py-1 opacity-60 uppercase tracking-wider flex items-center justify-between">
-                    <span>Try Demo Personas</span>
-                    <span className="text-[9px] bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded">Quick Switch</span>
-                  </div>
-
-                  <div className="space-y-1 my-1">
-                    {personas.map((p) => {
-                      const isSelected = p.id === currentUser.id;
-                      return (
-                        <button
-                          key={p.id}
-                          onClick={() => { switchPersona(p); setIsPersonaOpen(false); }}
-                          className={`w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-left transition-all text-xs ${
-                            isSelected ? 'bg-amber-500/20 text-amber-300 font-medium' : 'hover:bg-stone-800/40 opacity-75 hover:opacity-100'
-                          }`}
-                        >
-                          <img src={p.avatar} alt={p.displayName} className="w-5 h-5 rounded-full object-cover" />
-                          <div className="flex-1 truncate">
-                            <span className="font-medium">{p.displayName}</span>
-                            <span className="opacity-50 ml-1 text-[10px]">({p.interestGenres?.[0] || 'Poet'})</span>
-                          </div>
-                          {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>}
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  <div className="border-t border-stone-800/60 mt-2 pt-2 flex items-center justify-between px-1">
+                  <div className="mt-2 space-y-1">
                     <Link
                       to={`/profile/${currentUser.username}`}
-                      onClick={() => setIsPersonaOpen(false)}
-                      className="text-xs text-amber-400 hover:underline flex items-center gap-1"
+                      onClick={() => setIsProfileOpen(false)}
+                      className="w-full flex items-center gap-2 px-2.5 py-2 text-xs text-stone-200 hover:text-amber-300 hover:bg-stone-800/40 rounded-lg transition-all"
                     >
-                      <UserIcon className="w-3 h-3" /> View Portfolio
+                      <UserIcon className="w-3.5 h-3.5 text-amber-400" />
+                      <span>View My Portfolio</span>
                     </Link>
+
                     <button
-                      onClick={() => { logout(); setIsPersonaOpen(false); }}
-                      className="text-xs text-rose-400 hover:text-rose-300 flex items-center gap-1"
+                      onClick={() => { logout(); setIsProfileOpen(false); }}
+                      className="w-full flex items-center gap-2 px-2.5 py-2 text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 rounded-lg transition-all text-left"
                     >
-                      <LogOut className="w-3 h-3" /> Sign Out
+                      <LogOut className="w-3.5 h-3.5" />
+                      <span>Sign Out</span>
                     </button>
                   </div>
                 </div>

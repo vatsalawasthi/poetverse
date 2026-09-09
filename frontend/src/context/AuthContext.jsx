@@ -3,79 +3,15 @@ import { authAPI, userAPI } from '../services/api';
 
 const AuthContext = createContext();
 
-export const FALLBACK_PERSONAS = [
-  {
-    id: 'user_vatsal',
-    username: 'vatsal_poet',
-    displayName: 'Vatsal Awasthi',
-    email: 'vatsal@poetverse.io',
-    bio: 'Exploring the intersection of modern verse, cosmic philosophy, and spontaneous rhythm.',
-    avatar: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=200&auto=format&fit=crop&q=80',
-    location: 'New Delhi, India',
-    interestGenres: ['Free Verse', 'Sonnets', 'Spoken Word', 'Philosophy'],
-    favoriteThemes: ['Cosmos', 'Philosophy', 'Love', 'Melancholy'],
-    followers: ['user_elena'],
-    following: ['user_elena', 'user_malik'],
-    bookmarkedPoemIds: [],
-    badges: ['Pioneer Poet', 'Co-Author Pioneer'],
-  },
-  {
-    id: 'user_elena',
-    username: 'elena_solis',
-    displayName: 'Elena Solis',
-    email: 'elena@poetverse.io',
-    bio: 'Weaver of midnight sonnets, classical romanticism, and whispers of the Andalusian wind.',
-    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80',
-    location: 'Granada, Spain',
-    interestGenres: ['Sonnets', 'Romanticism', 'Elegies', 'Free Verse'],
-    favoriteThemes: ['Melancholy', 'Love', 'Stars', 'Nostalgia'],
-    followers: ['user_vatsal', 'user_zoya'],
-    following: ['user_zoya', 'user_vatsal'],
-    bookmarkedPoemIds: [],
-    badges: ['Master Sonneteer', 'Crown Poet 2026'],
-  },
-  {
-    id: 'user_malik',
-    username: 'malik_spoken',
-    displayName: 'Malik Vance',
-    email: 'malik@poetverse.io',
-    bio: 'Spoken word artist & rhythm architect. Translating urban pavement into fire and cadence.',
-    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&auto=format&fit=crop&q=80',
-    location: 'Chicago, USA',
-    interestGenres: ['Spoken Word', 'Slam Poetry', 'Beat Poetry'],
-    favoriteThemes: ['Resistance', 'Urban', 'Identity', 'Hope'],
-    followers: ['user_vatsal'],
-    following: [],
-    bookmarkedPoemIds: [],
-    badges: ['Slam Champion', 'Rhythm Architect'],
-  },
-  {
-    id: 'user_zoya',
-    username: 'zoya_mir',
-    displayName: 'Zoya Mir',
-    email: 'zoya@poetverse.io',
-    bio: 'Penning contemporary Ghazals and mystic verses on longing, moonlight, and timeless truth.',
-    avatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=200&auto=format&fit=crop&q=80',
-    location: 'Lahore, Pakistan',
-    interestGenres: ['Ghazal', 'Sufi & Mystic', 'Romanticism'],
-    favoriteThemes: ['Love', 'Philosophy', 'Longing', 'Moonlight'],
-    followers: ['user_elena'],
-    following: ['user_elena'],
-    bookmarkedPoemIds: [],
-    badges: ['Ghazal Virtuoso', 'Verse Weaver'],
-  }
-];
-
 export const AuthProvider = ({ children }) => {
-  // Defaults to null (Guest) unless the user has logged in or registered on this device
+  // Defaults to null (Guest) unless the user has authenticated with their personal credentials
   const [currentUser, setCurrentUser] = useState(() => {
     const saved = localStorage.getItem('poetverse_user');
     return saved ? JSON.parse(saved) : null;
   });
 
-  const [personas, setPersonas] = useState(FALLBACK_PERSONAS);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  const [authModalInitialMode, setAuthModalInitialMode] = useState('register'); // 'login' or 'register'
+  const [authModalInitialMode, setAuthModalInitialMode] = useState('login'); // 'login' or 'register'
 
   useEffect(() => {
     if (currentUser) {
@@ -85,70 +21,50 @@ export const AuthProvider = ({ children }) => {
     }
   }, [currentUser]);
 
-  // Fetch live personas from backend if available
-  useEffect(() => {
-    authAPI.getPersonas()
-      .then(res => {
-        if (res.data && res.data.length > 0) {
-          setPersonas(res.data);
-          // sync current user if matching ID found
-          if (currentUser) {
-            const matched = res.data.find(u => u.id === currentUser?.id || u.username === currentUser?.username);
-            if (matched) setCurrentUser(matched);
-          }
-        }
-      })
-      .catch(() => {
-        // Backend offline fallback
-      });
-  }, []);
-
   const login = async (username, password) => {
+    if (!username?.trim() || !password?.trim()) {
+      return { success: false, error: 'Please enter both username/email and password.' };
+    }
+
     try {
-      const res = await authAPI.login({ username, password });
+      const res = await authAPI.login({ 
+        username: username.trim(), 
+        password: password.trim() 
+      });
       setCurrentUser(res.data);
       setIsAuthModalOpen(false);
       return { success: true, user: res.data };
     } catch (err) {
-      // Fallback local match
-      const matched = personas.find(p => 
-        p.username.toLowerCase() === username.toLowerCase() || 
-        p.email.toLowerCase() === username.toLowerCase()
-      );
-      if (matched) {
-        setCurrentUser(matched);
-        setIsAuthModalOpen(false);
-        return { success: true, user: matched };
-      }
-      return { success: false, error: err.response?.data || 'Invalid username or password' };
+      // Strict rejection: Never allow unauthorized access
+      const errorMessage = typeof err.response?.data === 'string' 
+        ? err.response.data 
+        : (err.response?.data?.message || 'Invalid username/email or password.');
+      return { success: false, error: errorMessage };
     }
   };
 
   const register = async (userData) => {
+    if (!userData.username?.trim() || !userData.email?.trim() || !userData.password?.trim()) {
+      return { success: false, error: 'Username, email, and password are required.' };
+    }
+
     try {
-      const res = await authAPI.register(userData);
+      const res = await authAPI.register({
+        ...userData,
+        username: userData.username.trim().toLowerCase().replace(/\s+/g, '_'),
+        email: userData.email.trim().toLowerCase(),
+        password: userData.password.trim(),
+        displayName: userData.displayName?.trim() || userData.username.trim(),
+      });
       setCurrentUser(res.data);
       setIsAuthModalOpen(false);
       return { success: true, user: res.data };
     } catch (err) {
-      // Local registration fallback
-      const newUser = {
-        id: 'user_' + Date.now(),
-        ...userData,
-        followers: [],
-        following: [],
-        bookmarkedPoemIds: [],
-        badges: ['Novice Bard'],
-      };
-      setCurrentUser(newUser);
-      setPersonas(prev => [newUser, ...prev]);
-      setIsAuthModalOpen(false);
-      return { success: true, user: newUser };
+      const errorMessage = typeof err.response?.data === 'string'
+        ? err.response.data
+        : (err.response?.data?.message || 'Registration failed. Username or email may already be registered.');
+      return { success: false, error: errorMessage };
     }
-  };
-
-  const switchPersona = (persona) => {
-    setCurrentUser(persona);
   };
 
   const logout = () => {
@@ -168,16 +84,17 @@ export const AuthProvider = ({ children }) => {
 
   const toggleFollow = async (targetUserId) => {
     if (!currentUser) {
-      openRegisterModal();
+      openLoginModal();
       return;
     }
     try {
       await userAPI.toggleFollow(targetUserId, currentUser.id);
     } catch (e) {
-      // local toggle
+      // error handled
     }
     
     setCurrentUser(prev => {
+      if (!prev) return prev;
       const followingList = Array.isArray(prev.following) ? prev.following : Array.from(prev.following || []);
       const isFollowing = followingList.includes(targetUserId);
       const newFollowing = isFollowing 
@@ -189,16 +106,17 @@ export const AuthProvider = ({ children }) => {
 
   const toggleBookmark = async (poemId) => {
     if (!currentUser) {
-      openRegisterModal();
+      openLoginModal();
       return;
     }
     try {
       await userAPI.toggleBookmark(currentUser.id, poemId);
     } catch (e) {
-      // local toggle
+      // error handled
     }
 
     setCurrentUser(prev => {
+      if (!prev) return prev;
       const bookmarked = Array.isArray(prev.bookmarkedPoemIds) 
         ? prev.bookmarkedPoemIds 
         : Array.from(prev.bookmarkedPoemIds || []);
@@ -224,7 +142,6 @@ export const AuthProvider = ({ children }) => {
     <AuthContext.Provider
       value={{
         currentUser,
-        personas,
         isAuthModalOpen,
         authModalInitialMode,
         openAuthModal: () => openLoginModal(),
@@ -234,7 +151,6 @@ export const AuthProvider = ({ children }) => {
         login,
         register,
         logout,
-        switchPersona,
         toggleFollow,
         toggleBookmark,
         updateProfile,
