@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Feather, User, Mail, Lock, Check, UserPlus, LogIn, AlertCircle, KeyRound, ArrowLeft, CheckCircle2, ExternalLink } from 'lucide-react';
+import { X, Feather, User, Mail, Lock, Check, UserPlus, LogIn, AlertCircle, KeyRound, ArrowLeft, CheckCircle2, ExternalLink, Inbox } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 
@@ -27,6 +27,7 @@ export default function AuthModal() {
       setMode(authModalInitialMode);
       setError(null);
       setSuccessInfo(null);
+      setResetCode('');
     }
   }, [authModalInitialMode, isAuthModalOpen]);
 
@@ -36,6 +37,14 @@ export default function AuthModal() {
     setSelectedGenres(prev => 
       prev.includes(genre) ? prev.filter(g => g !== genre) : [...prev, genre]
     );
+  };
+
+  const getMailProviderLink = (userEmail) => {
+    const lower = userEmail.toLowerCase();
+    if (lower.includes('@gmail.')) return { name: 'Open Gmail Inbox', url: 'https://mail.google.com' };
+    if (lower.includes('@outlook.') || lower.includes('@hotmail.')) return { name: 'Open Outlook', url: 'https://outlook.live.com' };
+    if (lower.includes('@yahoo.')) return { name: 'Open Yahoo Mail', url: 'https://mail.yahoo.com' };
+    return { name: 'Open Mail Client', url: `mailto:${userEmail}` };
   };
 
   const handleForgotSubmit = async (e) => {
@@ -48,13 +57,11 @@ export default function AuthModal() {
     setIsSubmitting(true);
     const res = await forgotPassword(email.trim());
     if (res.success) {
-      setSuccessInfo(`Verification code dispatched to ${email.trim()}! Please check your private inbox.`);
-      if (res.data?.resetCode) {
-        setResetCode(res.data.resetCode);
-      }
+      setSuccessInfo(`A confidential 6-digit verification code has been dispatched to ${email.trim()}.`);
+      setResetCode(''); // Keep code blank so user must retrieve it from their real email
       setMode('reset');
     } else {
-      setError(res.error || 'Failed to request password reset. Please make sure this email is registered.');
+      setError(res.error || 'Failed to request reset. Please ensure this email is registered.');
     }
     setIsSubmitting(false);
   };
@@ -62,7 +69,11 @@ export default function AuthModal() {
   const handleResetSubmit = async (e) => {
     e.preventDefault();
     if (!resetCode.trim() || !newPassword.trim()) {
-      setError('Please provide the 6-digit code and your new password.');
+      setError('Please enter the 6-digit verification code received in your email and your new password.');
+      return;
+    }
+    if (resetCode.trim().length !== 6) {
+      setError('Please enter a valid 6-digit code.');
       return;
     }
     if (newPassword.length < 6) {
@@ -77,12 +88,12 @@ export default function AuthModal() {
       newPassword: newPassword.trim(),
     });
     if (res.success) {
-      setSuccessInfo('Password successfully updated! You are now signed in.');
+      setSuccessInfo('Password successfully updated! You are now logged in.');
       setTimeout(() => {
         closeAuthModal();
       }, 1200);
     } else {
-      setError(res.error || 'Invalid or expired verification code.');
+      setError(res.error || 'Invalid or expired verification code. Please check your email.');
     }
     setIsSubmitting(false);
   };
@@ -127,6 +138,8 @@ export default function AuthModal() {
     setIsSubmitting(false);
   };
 
+  const mailProvider = getMailProviderLink(email);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in">
       <div className={`relative w-full max-w-md rounded-2xl border shadow-2xl overflow-hidden ${theme.cardBg} ${theme.border}`}>
@@ -147,8 +160,8 @@ export default function AuthModal() {
               <div className="text-xs opacity-60">
                 {mode === 'login' && 'Access your personal verses and drafts'}
                 {mode === 'register' && 'Join the private sanctuary with your credentials'}
-                {mode === 'forgot' && 'We send a verification code to your registered email'}
-                {mode === 'reset' && 'Enter the 6-digit code received on your email'}
+                {mode === 'forgot' && 'Verification code will be sent to your inbox'}
+                {mode === 'reset' && 'Enter the 6-digit code received on your private email'}
               </div>
             </div>
           </div>
@@ -212,7 +225,7 @@ export default function AuthModal() {
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="mail.vatsalawasthi@gmail.com"
+                    placeholder="Enter your account email"
                     className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-stone-700 bg-stone-900/70 text-xs text-stone-100 focus:outline-none focus:border-amber-500"
                   />
                 </div>
@@ -223,7 +236,7 @@ export default function AuthModal() {
                 disabled={isSubmitting}
                 className="w-full py-3 rounded-xl bg-gradient-to-r from-amber-500 via-amber-400 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-stone-950 font-bold text-xs shadow-lg shadow-amber-500/20 transition-all disabled:opacity-50 flex items-center justify-center gap-1.5"
               >
-                {isSubmitting ? 'Dispatching Code to Mail...' : 'Send Reset Code to Private Mail'}
+                {isSubmitting ? 'Sending Code to Your Email...' : 'Send Verification Code to Mail'}
               </button>
 
               <button
@@ -240,26 +253,29 @@ export default function AuthModal() {
           {mode === 'reset' && (
             <form onSubmit={handleResetSubmit} className="space-y-3.5">
               
-              <div className="p-3 rounded-xl border border-amber-500/20 bg-amber-500/5 text-xs text-amber-200/90 flex flex-col gap-1.5">
+              <div className="p-3.5 rounded-xl border border-amber-500/30 bg-amber-500/10 text-xs flex flex-col gap-2">
                 <div className="flex items-center justify-between">
-                  <span className="font-semibold text-amber-300">Code Sent to:</span>
+                  <div className="flex items-center gap-1.5 text-amber-300 font-semibold">
+                    <Inbox className="w-4 h-4 text-amber-400" />
+                    <span>Check Your Email Inbox</span>
+                  </div>
                   <a
-                    href="https://mail.google.com"
+                    href={mailProvider.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-[11px] text-amber-400 underline hover:text-amber-300 inline-flex items-center gap-0.5"
+                    className="text-[11px] font-bold text-amber-400 underline hover:text-amber-300 inline-flex items-center gap-0.5"
                   >
-                    Open Gmail <ExternalLink className="w-3 h-3" />
+                    {mailProvider.name} <ExternalLink className="w-3 h-3" />
                   </a>
                 </div>
-                <div className="text-stone-300 font-mono text-[11px] truncate">
-                  {email}
+                <div className="text-stone-300 text-[11px] leading-relaxed">
+                  We've sent a 6-digit verification code to <span className="font-mono text-amber-200 font-bold">{email}</span>. Please copy the code from your email and enter it below:
                 </div>
               </div>
 
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider opacity-70 mb-1">
-                  6-Digit Verification Code *
+                  6-Digit Verification Code (From Email) *
                 </label>
                 <input
                   type="text"
@@ -267,7 +283,7 @@ export default function AuthModal() {
                   maxLength={6}
                   value={resetCode}
                   onChange={(e) => setResetCode(e.target.value)}
-                  placeholder="123456"
+                  placeholder="Enter 6-digit code"
                   className="w-full px-3 py-2.5 rounded-xl border border-stone-700 bg-stone-900/70 text-sm tracking-widest text-center font-mono text-amber-300 focus:outline-none focus:border-amber-500"
                 />
               </div>
@@ -294,12 +310,12 @@ export default function AuthModal() {
                 disabled={isSubmitting}
                 className="w-full py-3 rounded-xl bg-gradient-to-r from-amber-500 via-amber-400 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-stone-950 font-bold text-xs shadow-lg shadow-amber-500/20 transition-all disabled:opacity-50"
               >
-                {isSubmitting ? 'Updating Password...' : 'Save New Password & Sign In'}
+                {isSubmitting ? 'Verifying...' : 'Save New Password & Sign In'}
               </button>
 
               <button
                 type="button"
-                onClick={() => { setMode('forgot'); setError(null); }}
+                onClick={() => { setMode('forgot'); setError(null); setResetCode(''); }}
                 className="w-full text-center text-xs text-stone-400 hover:text-amber-300 flex items-center justify-center gap-1 mt-2"
               >
                 <ArrowLeft className="w-3.5 h-3.5" /> Re-enter Email

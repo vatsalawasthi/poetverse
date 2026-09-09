@@ -4,12 +4,14 @@ import com.poetverse.dto.AuthDTO;
 import com.poetverse.model.User;
 import com.poetverse.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class UserService {
@@ -63,16 +65,18 @@ public class UserService {
         User user = userRepository.findByEmailIgnoreCase(email.trim())
                 .orElseThrow(() -> new IllegalArgumentException("No account registered with email: " + email));
 
-        // Generate a 6-digit numeric reset code
+        // Generate a confidential 6-digit numeric reset code
         String resetCode = String.format("%06d", new Random().nextInt(900000) + 100000);
         user.setResetPasswordToken(resetCode);
         user.setResetPasswordTokenExpiry(Instant.now().plus(15, ChronoUnit.MINUTES));
         userRepository.save(user);
 
+        log.info("Confidential password reset code dispatched for user: {}", user.getEmail());
+
+        // DO NOT leak the code in the HTTP response - it is strictly confidential
         Map<String, Object> response = new HashMap<>();
-        response.put("message", "A password reset code has been sent to your email.");
+        response.put("message", "A 6-digit password reset code has been sent to " + user.getEmail());
         response.put("email", user.getEmail());
-        response.put("resetCode", resetCode); // Available for verification modal
         return response;
     }
 
@@ -81,11 +85,11 @@ public class UserService {
                 .orElseThrow(() -> new IllegalArgumentException("No account registered with email: " + request.getEmail()));
 
         if (user.getResetPasswordToken() == null || !user.getResetPasswordToken().equals(request.getCode().trim())) {
-            throw new IllegalArgumentException("Invalid verification code");
+            throw new IllegalArgumentException("Invalid verification code. Please check your email inbox.");
         }
 
         if (user.getResetPasswordTokenExpiry() == null || user.getResetPasswordTokenExpiry().isBefore(Instant.now())) {
-            throw new IllegalArgumentException("Reset code has expired. Please request a new one.");
+            throw new IllegalArgumentException("Verification code has expired. Please request a new one.");
         }
 
         user.setPassword(request.getNewPassword().trim());
