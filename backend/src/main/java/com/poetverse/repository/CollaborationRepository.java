@@ -10,5 +10,6 @@ import java.util.List;
 public interface CollaborationRepository extends MongoRepository<Collaboration, String> {
     List<Collaboration> findByStatusOrderByCreatedAtDesc(String status);
     List<Collaboration> findByLeadAuthorIdOrderByCreatedAtDesc(String leadAuthorId);
+    void deleteByLeadAuthorId(String leadAuthorId);
     List<Collaboration> findAllByOrderByCreatedAtDesc();
 }

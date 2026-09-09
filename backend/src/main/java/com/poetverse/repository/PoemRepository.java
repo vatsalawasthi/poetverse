@@ -20,5 +20,7 @@ public interface PoemRepository extends MongoRepository<Poem, String> {
     @Query("{ '$or': [ { 'title': { $regex: ?0, $options: 'i' } }, { 'content': { $regex: ?0, $options: 'i' } }, { 'tags': { $regex: ?0, $options: 'i' } }, { 'authorDisplayName': { $regex: ?0, $options: 'i' } } ] }")
     List<Poem> searchPoems(String query);
 
+    List<Poem> findByAuthorId(String authorId);
+    void deleteByAuthorId(String authorId);
     int countByAuthorId(String authorId);
 }

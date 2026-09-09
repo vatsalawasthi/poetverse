@@ -190,6 +190,21 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const deleteAccount = async () => {
+    if (!currentUser?.id) return { success: false, error: 'No active session found.' };
+    try {
+      await userAPI.deleteAccount(currentUser.id);
+      setCurrentUser(null);
+      localStorage.removeItem('poetverse_user');
+      return { success: true };
+    } catch (err) {
+      const errorMessage = typeof err.response?.data === 'string'
+        ? err.response.data
+        : (err.response?.data?.message || 'Failed to delete account. Please try again.');
+      return { success: false, error: errorMessage };
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -207,6 +222,7 @@ export const AuthProvider = ({ children }) => {
         forgotPassword,
         resetPassword,
         logout,
+        deleteAccount,
         toggleFollow,
         toggleBookmark,
         updateProfile,

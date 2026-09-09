@@ -74,4 +74,14 @@ public class UserController {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<?> deleteAccount(@PathVariable String id) {
+        try {
+            userService.deleteAccount(id);
+            return ResponseEntity.ok(Map.of("message", "Account permanently deleted"));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
 }

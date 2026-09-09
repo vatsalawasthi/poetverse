@@ -10,5 +10,6 @@ import java.util.List;
 public interface CommentRepository extends MongoRepository<Comment, String> {
     List<Comment> findByPoemIdOrderByCreatedAtAsc(String poemId);
     void deleteByPoemId(String poemId);
+    void deleteByAuthorId(String authorId);
     int countByPoemId(String poemId);
 }

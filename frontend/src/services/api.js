@@ -25,6 +25,7 @@ export const userAPI = {
   getById: (id) => api.get(`/users/${id}`),
   getByUsername: (username) => api.get(`/users/username/${username}`),
   updateProfile: (id, data) => api.put(`/users/${id}`, data),
+  deleteAccount: (id) => api.delete(`/users/${id}`),
   toggleFollow: (targetUserId, currentUserId) => 
     api.post(`/users/${targetUserId}/follow?currentUserId=${currentUserId}`),
   toggleBookmark: (userId, poemId) => 

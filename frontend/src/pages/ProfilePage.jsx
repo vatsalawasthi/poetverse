@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { 
   User, 
   MapPin, 
@@ -12,7 +12,10 @@ import {
   Edit3, 
   Check, 
   Award,
-  Calendar
+  Calendar,
+  Trash2,
+  AlertTriangle,
+  ShieldAlert
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -22,7 +25,8 @@ import PoemReaderModal from '../components/PoemReaderModal';
 
 export default function ProfilePage() {
   const { username } = useParams();
-  const { currentUser, toggleFollow, updateProfile } = useAuth();
+  const navigate = useNavigate();
+  const { currentUser, toggleFollow, updateProfile, deleteAccount } = useAuth();
   const { theme } = useTheme();
 
   const [profileUser, setProfileUser] = useState(null);
@@ -30,6 +34,12 @@ export default function ProfilePage() {
   const [activeTab, setActiveTab] = useState('published'); // 'published', 'collaborations', 'bookmarked', 'about'
   const [selectedPoem, setSelectedPoem] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
+  
+  // Delete Account State
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState(null);
   
   // Edit Form State
   const [editDisplayName, setEditDisplayName] = useState('');
@@ -92,6 +102,20 @@ export default function ProfilePage() {
       interestGenres: editGenres,
     });
     setIsEditing(false);
+  };
+
+  const handleConfirmDeleteAccount = async () => {
+    if (deleteConfirmText !== 'DELETE') return;
+    setIsDeleting(true);
+    setDeleteError(null);
+    const res = await deleteAccount();
+    if (res.success) {
+      setShowDeleteModal(false);
+      navigate('/');
+    } else {
+      setDeleteError(res.error || 'Failed to delete account.');
+      setIsDeleting(false);
+    }
   };
 
   const publishedPoems = poems.filter(p => !p.coAuthors || p.coAuthors.length === 0);
@@ -335,6 +359,102 @@ export default function ProfilePage() {
           isOpen={Boolean(selectedPoem)}
           onClose={() => setSelectedPoem(null)}
         />
+      )}
+
+      {/* Account Danger Zone for own profile */}
+      {isOwnProfile && (
+        <div className="mt-12 p-6 rounded-3xl border border-rose-500/30 bg-rose-950/15 shadow-xl">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+              <h4 className="text-sm font-bold text-rose-300 flex items-center gap-2">
+                <ShieldAlert className="w-4 h-4 text-rose-400" /> Account Danger Zone
+              </h4>
+              <p className="text-xs text-stone-400 mt-1 max-w-xl leading-relaxed">
+                Permanently delete your poet account, published verses, co-authored contributions, bookmarks, and records. This action cannot be reversed.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => { setShowDeleteModal(true); setDeleteConfirmText(''); setDeleteError(null); }}
+              className="px-4 py-2.5 rounded-xl bg-rose-500/15 hover:bg-rose-600 text-rose-300 hover:text-white border border-rose-500/40 text-xs font-bold flex items-center gap-2 transition-all shadow-sm shrink-0 cursor-pointer"
+            >
+              <Trash2 className="w-4 h-4" />
+              <span>Delete Account Permanently</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in">
+          <div className={`relative w-full max-w-md rounded-2xl border border-rose-500/40 p-6 shadow-2xl ${theme.cardBg}`}>
+            <div className="flex items-center gap-3 text-rose-400 mb-4">
+              <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20">
+                <AlertTriangle className="w-6 h-6 text-rose-400" />
+              </div>
+              <div>
+                <h3 className="font-heading text-lg font-bold text-rose-200">
+                  Permanently Delete Account?
+                </h3>
+                <p className="text-xs text-rose-400/80">
+                  This action is irreversible and immediate.
+                </p>
+              </div>
+            </div>
+
+            {deleteError && (
+              <div className="mb-4 p-3 rounded-lg bg-rose-500/20 border border-rose-500/40 text-rose-200 text-xs flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 shrink-0" />
+                <span>{deleteError}</span>
+              </div>
+            )}
+
+            <div className="space-y-2.5 text-xs text-stone-300 mb-5 leading-relaxed bg-stone-900/70 p-3.5 rounded-xl border border-stone-800">
+              <p>
+                You are about to permanently delete the account for <strong className="text-amber-300">@{currentUser?.username}</strong> (<span className="text-stone-400">{currentUser?.email}</span>).
+              </p>
+              <ul className="list-disc list-inside space-y-1 text-stone-400 text-[11px]">
+                <li>All your solo verses and drafts will be deleted.</li>
+                <li>All your comments and collaboration stanzas will be removed.</li>
+                <li>Your profile, following, and bookmarks will be completely wiped.</li>
+              </ul>
+            </div>
+
+            <div className="mb-5">
+              <label className="block text-xs font-semibold text-stone-300 mb-1.5">
+                To confirm, type <span className="font-mono text-rose-300 font-bold bg-rose-500/20 px-1.5 py-0.5 rounded border border-rose-500/30">DELETE</span> in the box below:
+              </label>
+              <input
+                type="text"
+                value={deleteConfirmText}
+                onChange={(e) => setDeleteConfirmText(e.target.value)}
+                placeholder="Type DELETE to confirm"
+                className="w-full px-3 py-2.5 rounded-xl border border-rose-500/40 bg-stone-900 text-xs font-mono text-rose-200 placeholder:text-stone-600 focus:outline-none focus:border-rose-400"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-3">
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={() => setShowDeleteModal(false)}
+                className="px-4 py-2 rounded-xl border border-stone-700 hover:bg-stone-800 text-xs font-semibold text-stone-300 transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={deleteConfirmText !== 'DELETE' || isDeleting}
+                onClick={handleConfirmDeleteAccount}
+                className="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 disabled:opacity-40 text-white text-xs font-bold transition-all shadow-lg shadow-rose-900/30 flex items-center gap-1.5 cursor-pointer disabled:cursor-not-allowed"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>{isDeleting ? 'Deleting Account...' : 'Permanently Delete'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
     </div>

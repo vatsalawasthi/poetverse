@@ -1,7 +1,11 @@
 package com.poetverse.service;
 
 import com.poetverse.dto.AuthDTO;
+import com.poetverse.model.Poem;
 import com.poetverse.model.User;
+import com.poetverse.repository.CollaborationRepository;
+import com.poetverse.repository.CommentRepository;
+import com.poetverse.repository.PoemRepository;
 import com.poetverse.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -17,6 +21,9 @@ import java.util.*;
 public class UserService {
 
     private final UserRepository userRepository;
+    private final PoemRepository poemRepository;
+    private final CommentRepository commentRepository;
+    private final CollaborationRepository collaborationRepository;
 
     public AuthDTO.AuthResponse register(AuthDTO.RegisterRequest request) {
         if (userRepository.existsByUsernameIgnoreCase(request.getUsername())) {
@@ -222,6 +229,57 @@ public class UserService {
         }
         userRepository.save(user);
         return bookmarked;
+    }
+
+    public void deleteAccount(String userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("User not found with id: " + userId));
+
+        // 1. Delete user's poems and related comments
+        try {
+            List<Poem> userPoems = poemRepository.findByAuthorId(userId);
+            if (userPoems != null && !userPoems.isEmpty()) {
+                for (Poem poem : userPoems) {
+                    try {
+                        commentRepository.deleteByPoemId(poem.getId());
+                    } catch (Exception ignored) {}
+                }
+                poemRepository.deleteAll(userPoems);
+            }
+        } catch (Exception e) {
+            log.warn("Notice deleting poems for user {}: {}", userId, e.getMessage());
+        }
+
+        // 2. Delete user comments
+        try {
+            commentRepository.deleteByAuthorId(userId);
+        } catch (Exception ignored) {}
+
+        // 3. Delete user's lead collaborations
+        try {
+            collaborationRepository.deleteByLeadAuthorId(userId);
+        } catch (Exception ignored) {}
+
+        // 4. Remove user from others' following and followers lists
+        try {
+            List<User> allUsers = userRepository.findAll();
+            for (User u : allUsers) {
+                boolean modified = false;
+                if (u.getFollowers() != null && u.getFollowers().remove(userId)) {
+                    modified = true;
+                }
+                if (u.getFollowing() != null && u.getFollowing().remove(userId)) {
+                    modified = true;
+                }
+                if (modified) {
+                    userRepository.save(u);
+                }
+            }
+        } catch (Exception ignored) {}
+
+        // 5. Delete the user
+        userRepository.deleteById(userId);
+        log.info("User {} (@{}) and all associated data permanently deleted.", user.getEmail(), user.getUsername());
     }
 
     public AuthDTO.AuthResponse mapToAuthResponse(User user) {
