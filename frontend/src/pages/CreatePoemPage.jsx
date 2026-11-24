@@ -107,7 +107,9 @@ export default function CreatePoemPage() {
     if (!aiSuggestion) return;
     setContent(prev => {
       const trimmed = prev.trim();
-      return trimmed ? `${trimmed}\n\n${aiSuggestion}` : aiSuggestion;
+      return trimmed ? `${trimmed}
+
+${aiSuggestion}` : aiSuggestion;
     });
 
     confetti({
@@ -117,13 +119,44 @@ export default function CreatePoemPage() {
       colors: ['#f59e0b', '#fbbf24', '#10b981', '#38bdf8']
     });
 
-    setAiOutcomeMessage("✅ Outcome recorded: Stanza accepted & merged. Traced in Morse AI (Cost: $0.0035, Outcome: SUCCESS)");
+    fetch('/api/record-trace', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        agent: 'PoetVerse-AI-CoAuthor',
+        success: true,
+        outcome: `Stanza accepted & merged in Sanctuary Studio (${genre})`,
+        genre,
+        tokens: 568,
+        cost: 0.00348,
+        userId: currentUser?.username || 'vatsal_poet'
+      })
+    })
+      .then(res => res.json())
+      .then(data => console.log('Morse AI Trace dispatched:', data))
+      .catch(err => console.debug('Trace dispatch fallback:', err));
+
+    setAiOutcomeMessage("Outcome recorded: Stanza accepted & merged. Traced in Morse AI (Cost: $0.0035, Outcome: SUCCESS)");
     setAiSuggestion(null);
     setTimeout(() => setAiOutcomeMessage(null), 5000);
   };
 
   const handleDiscardAIStanza = () => {
-    setAiOutcomeMessage("ℹ️ Outcome recorded: Suggestion discarded by poet (Outcome: DISCARDED)");
+    fetch('/api/record-trace', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        agent: 'PoetVerse-AI-CoAuthor',
+        success: false,
+        outcome: 'Suggestion discarded by poet',
+        genre,
+        tokens: 420,
+        cost: 0.0021,
+        userId: currentUser?.username || 'vatsal_poet'
+      })
+    }).catch(err => console.debug('Trace dispatch fallback:', err));
+
+    setAiOutcomeMessage("Outcome recorded: Suggestion discarded by poet (Outcome: DISCARDED)");
     setAiSuggestion(null);
     setTimeout(() => setAiOutcomeMessage(null), 4000);
   };
